@@ -350,6 +350,23 @@ class ExpectationExplorer(object):
 
         return remove_expectation_button
 
+    def generate_save_expectation_suite_button(self, batch):
+        save_expectation_suite_button = widgets.Button(
+            description='Save Expectation Suite',
+            button_style='success',
+            tooltip='click to save expectation suite',
+            icon='save',
+            layout={'width': 'auto'}
+        )
+
+        def on_click(button):
+            batch.save_expectation_suite()
+
+        save_expectation_suite_button.on_click(on_click)
+
+        return save_expectation_suite_button
+
+
     def generate_tag_button(self, expectation_state, tag, tag_list, widget_display):
         batch_id = expectation_state['batch_id']
         batch = self.state['batches'].get(batch_id)[
@@ -1439,7 +1456,7 @@ class ExpectationExplorer(object):
                 ]),
                 exception_accordion,
                 result_detail_accordion,
-                remove_expectation_button
+                remove_expectation_button,
             ]
         )
         expectation_editor_widget = widgets.Accordion(
@@ -1553,7 +1570,11 @@ class ExpectationExplorer(object):
             column_accordion.selected_index = None
             column_accordions.append(column_accordion)
 
-        return [summary_widget] + column_accordions
+        save_expectation_button = self.generate_save_expectation_suite_button(
+            batch=batch)
+
+
+        return [summary_widget] + column_accordions + [save_expectation_button]
 
     def edit_expectation_suite(self, batch):
         batch_id = batch.batch_id
