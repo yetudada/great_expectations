@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ExpectationExplorer(object):
     def __init__(self):
         self.state = {
-            "data_assets": {
+            "batches": {
 
             }
         }
@@ -101,71 +101,71 @@ class ExpectationExplorer(object):
             'description_width': {'description_width': '150px'}
         }
 
-    def update_result(self, data_asset_name, new_result, column=None):
-        new_success_value = new_result.get('success')
+    def update_result(self, batch_id, new_result, column=None):
+        new_success_value = new_result.success
         expectation_type = new_result.expectation_config.expectation_type
         new_result_widgets = self.generate_expectation_result_detail_widgets(result=new_result.result)
         new_border_color = 'green' if new_success_value else 'red'
-        data_asset_expectations = self.state['data_assets'][data_asset_name]['expectations']
+        batch_expectations = self.state['batches'][batch_id]['expectations']
 
         if column:
-            data_asset_expectations[column][expectation_type][
+            batch_expectations[column][expectation_type][
                 'success'].value = "<span><strong>Success: </strong>{new_success_value}</span>".format(new_success_value=str(new_success_value))
-            data_asset_expectations[column][expectation_type]['result_detail_widget']\
+            batch_expectations[column][expectation_type]['result_detail_widget']\
                 .children = new_result_widgets
-            data_asset_expectations[column][expectation_type]['editor_widget']\
+            batch_expectations[column][expectation_type]['editor_widget']\
                 .layout\
                 .border = "2px solid {new_border_color}".format(new_border_color=new_border_color)
         else:
-            data_asset_expectations['non_column_expectations'][expectation_type][
+            batch_expectations['non_column_expectations'][expectation_type][
                 'success'].value = "<span><strong>Success: </strong>{new_success_value}</span>".format(new_success_value=str(new_success_value))
-            data_asset_expectations['non_column_expectations'][expectation_type]['result_detail_widget']\
+            batch_expectations['non_column_expectations'][expectation_type]['result_detail_widget']\
                 .children = new_result_widgets
-            data_asset_expectations['non_column_expectations'][expectation_type]['editor_widget']\
+            batch_expectations['non_column_expectations'][expectation_type]['editor_widget']\
                 .layout\
                 .border = "2px solid {new_border_color}".format(new_border_color=new_border_color)
 
-    def get_expectation_state(self, data_asset_name, expectation_type, column=None):
-        data_asset_state = self.state['data_assets'].get(data_asset_name, {})
-        data_asset_expectations = data_asset_state.get(
+    def get_expectation_state(self, batch_id, expectation_type, column=None):
+        batch_state = self.state['batches'].get(batch_id, {})
+        batch_expectations = batch_state.get(
             'expectations', {})
 
         if column:
-            column_expectations = data_asset_expectations.get(column)
+            column_expectations = batch_expectations.get(column)
             if not column_expectations:
                 return None
             return column_expectations.get(expectation_type)
         else:
-            non_column_expectations = data_asset_expectations.get(
+            non_column_expectations = batch_expectations.get(
                 'non_column_expectations')
             if not non_column_expectations:
                 return None
             return non_column_expectations.get(expectation_type)
 
-    def initialize_data_asset_state(self, data_asset):
-        data_asset_name = data_asset.data_asset_name
+    def initialize_batch_state(self, batch):
+        batch_id = batch.batch_id
 
-        self.state['data_assets'][data_asset_name] = {
-            "data_asset": data_asset,
+        self.state['batches'][batch_id] = {
+            "batch": batch,
             "expectations": {}
         }
 
-    def set_expectation_state(self, data_asset, expectation_state, column=None):
-        data_asset_name = data_asset.data_asset_name
+    def set_expectation_state(self, batch, expectation_state, column=None):
+        batch_id = batch.batch_id
         expectation_type = expectation_state.get('expectation_type')
-        data_asset_state = self.state['data_assets'].get(data_asset_name)
+        batch_state = self.state['batches'].get(batch_id)
 
-        data_asset_expectations = data_asset_state.get('expectations')
+        batch_expectations = batch_state.get('expectations')
 
         if column:
-            column_expectations = data_asset_expectations.get(column, {})
+            column_expectations = batch_expectations.get(column, {})
             column_expectations[expectation_type] = expectation_state
-            data_asset_expectations[column] = column_expectations
+            batch_expectations[column] = column_expectations
         else:
-            non_column_expectations = data_asset_expectations.get(
+            non_column_expectations = batch_expectations.get(
                 'non_column_expectations', {})
             non_column_expectations[expectation_type] = expectation_state
-            data_asset_expectations['non_column_expectations'] = non_column_expectations
+            batch_expectations['non_column_expectations'] = non_column_expectations
 
     # interconvert expectation kwargs
     def expectation_kwarg_dict_to_ge_kwargs(self, kwarg_dict):
@@ -197,7 +197,7 @@ class ExpectationExplorer(object):
                 tag_list=new_list,
                 widget_display=widget_display
             )
-        
+
         def ge_number_to_widget_string(widget_dict, number_kwarg):
             if hasattr(widget_dict['kwarg_widget'], 'value'):
                 widget_dict['kwarg_widget'].value = str(number_kwarg) if number_kwarg or number_kwarg == 0 else ''
@@ -234,12 +234,12 @@ class ExpectationExplorer(object):
         new_ge_expectation_kwargs = expectation_validation_result.expectation_config['kwargs']
         current_expectation_kwarg_dict = existing_expectation_state['kwargs']
         column = current_expectation_kwarg_dict.get('column')
-        data_asset_name = existing_expectation_state.get('data_asset_name')
+        batch_id = existing_expectation_state.get('batch_id')
 
         for ge_kwarg_name, ge_kwarg_value in new_ge_expectation_kwargs.items():
             if ge_kwarg_name in self.kwarg_widget_exclusions:
                 continue
-            
+
             current_widget_dict = current_expectation_kwarg_dict.get(ge_kwarg_name)
 
             if current_widget_dict:
@@ -262,7 +262,7 @@ class ExpectationExplorer(object):
                 expectation_editor_widget.children[0].children[1].children += (
                     widget_dict['kwarg_widget'],)
 
-        self.update_result(data_asset_name=data_asset_name, new_result=expectation_validation_result, column=column)
+        self.update_result(batch_id=batch_id, new_result=expectation_validation_result, column=column)
         # TODO: This is messy. Figure out better way of storing/accessing UI elements
         validation_time_widget = expectation_editor_widget.children[0].children[0].children[0].children[-1]
         validation_time_widget.value = "<div><strong>Date/Time Validated (UTC): </strong>{validation_time}</div>".format(validation_time=validation_time)
@@ -282,7 +282,7 @@ class ExpectationExplorer(object):
     def generate_text_area_widget(self, value, description='', description_tooltip='', continuous_update=False, placeholder=''):
         return widgets.Textarea(
             value=value,
-            placeholder=placeholder, 
+            placeholder=placeholder,
             description="<strong>{description}: </strong>".format(description=description),
             style=self.styles.get('description_width'),
             layout={'width': '400px'},
@@ -313,8 +313,8 @@ class ExpectationExplorer(object):
         )
 
     def generate_remove_expectation_button(self, expectation_state):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)['data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)['batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
 
@@ -331,16 +331,16 @@ class ExpectationExplorer(object):
         @expectation_feedback_widget.capture(clear_output=True)
         def on_click(button):
             editor_widget = expectation_state.get('editor_widget')
-            expectation = data_asset.remove_expectation(
+            expectation = batch.remove_expectation(
                 expectation_type=expectation_type, column=column)
-            data_asset_state = self.state['data_assets'].get(data_asset_name, {})
-            data_asset_expectations = data_asset_state.get('expectations')
+            batch_state = self.state['batches'].get(batch_id, {})
+            batch_expectations = batch_state.get('expectations')
 
             if column:
-                column_expectations = data_asset_expectations.get(column)
+                column_expectations = batch_expectations.get(column)
                 column_expectations.pop(expectation_type)
             else:
-                non_column_expectations = data_asset_expectations.get(
+                non_column_expectations = batch_expectations.get(
                     'non_column_expectations')
                 non_column_expectations.pop(expectation_type)
 
@@ -351,9 +351,9 @@ class ExpectationExplorer(object):
         return remove_expectation_button
 
     def generate_tag_button(self, expectation_state, tag, tag_list, widget_display):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         tag_button = widgets.Button(
@@ -379,7 +379,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         tag_button.on_click(on_click)
@@ -409,9 +409,9 @@ class ExpectationExplorer(object):
 
     # widget dict generators for kwarg input fields
     def generate_output_strftime_format_widget_dict(self, expectation_state, output_strftime_format='', column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
 
@@ -434,7 +434,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         output_strftime_format_widget.on_submit(on_output_strftime_format_submit)
@@ -442,9 +442,9 @@ class ExpectationExplorer(object):
         return widget_dict
 
     def generate_strftime_format_widget_dict(self, expectation_state, strftime_format='', column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
 
@@ -463,7 +463,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         strftime_format_widget.on_submit(on_strftime_format_submit)
@@ -471,9 +471,9 @@ class ExpectationExplorer(object):
         return widget_dict
 
     def generate_value_widget_dict(self, expectation_state, value=None, column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
 
@@ -485,7 +485,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         value_widget.observe(on_value_change, names='value')
@@ -497,9 +497,9 @@ class ExpectationExplorer(object):
         return widget_dict
 
     def generate_json_schema_widget_dict(self, expectation_state, json_schema='', column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
 
@@ -510,7 +510,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         json_schema_widget.observe(
@@ -523,9 +523,9 @@ class ExpectationExplorer(object):
         return widget_dict
 
     def generate_ties_okay_widget_dict(self, expectation_state, ties_okay=None, column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         ties_okay_widget = self.generate_boolean_checkbox_widget(
@@ -539,7 +539,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         ties_okay_widget.observe(
@@ -552,9 +552,9 @@ class ExpectationExplorer(object):
         return widget_dict
 
     def generate_match_on_widget_dict(self, expectation_state, match_on='any', column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         match_on_widget = self.generate_radio_buttons_widget(
@@ -569,7 +569,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         match_on_widget.observe(
@@ -582,9 +582,9 @@ class ExpectationExplorer(object):
         return widget_dict
 
     def generate_regex_list_widget_dict(self, expectation_state, regex_list=[], column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         regex_list_widget_display = widgets.Box(
@@ -627,23 +627,23 @@ class ExpectationExplorer(object):
                 tag=new_regex,
                 expectation_state=expectation_state,
                 tag_list=regex_list,
-                widget_display=widget_display), 
+                widget_display=widget_display),
             )
             widget.value = ''
 
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
         regex_list_widget_input.on_submit(on_regex_list_input_submit)
 
         return widget_dict
 
     def generate_column_list_widget_dict(self, expectation_state, column_list=[], column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         column_list_widget_display = widgets.Box(
@@ -695,19 +695,19 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
         column_list_widget_input.on_submit(on_column_list_input_submit)
 
         return widget_dict
 
     def generate_column_index_widget_dict(self, expectation_state, column, column_index='', **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
-        
+
         column_index_widget = self.generate_text_widget(value=str(column_index), description='column_index', continuous_update=True, placeholder='press enter to confirm...')
 
         widget_dict = {
@@ -735,7 +735,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         column_index_widget.on_submit(on_column_index_submit)
@@ -743,9 +743,9 @@ class ExpectationExplorer(object):
         return widget_dict
 
     def generate_regex_widget_dict(self, expectation_state, regex='', column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         regex_widget = self.generate_text_area_widget(
@@ -756,12 +756,12 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         regex_widget.observe(
             on_regex_change, names='value')
-        
+
         widget_dict = {
             'kwarg_widget': regex_widget
         }
@@ -770,9 +770,9 @@ class ExpectationExplorer(object):
 
     def generate_parse_strings_as_datetimes_widget_dict(
             self, expectation_state, parse_strings_as_datetimes=None, column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         min_max_type_widget_dict = expectation_state['kwargs'].get('min_max_type', {})
@@ -794,7 +794,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         parse_strings_as_datetimes_widget.observe(
@@ -805,11 +805,11 @@ class ExpectationExplorer(object):
         }
 
         return widget_dict
- 
+
     def generate_strictly_widget_dict(self, expectation_state, strictly=None, column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         inc_dec = expectation_type.split('_')[-1]
@@ -823,7 +823,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         strictly_widget.observe(on_strictly_change, names='value')
@@ -835,9 +835,9 @@ class ExpectationExplorer(object):
         return widget_dict
 
     def generate_mostly_widget_dict(self, expectation_state, mostly=1, column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         mostly_widget = widgets.FloatSlider(
@@ -859,7 +859,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         mostly_widget.observe(on_mostly_change, names='value')
@@ -868,11 +868,11 @@ class ExpectationExplorer(object):
         }
 
         return widget_dict
-    
+
     def generate_min_max_type_widget_dict(self, expectation_state, type_option=None, column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
 
@@ -919,7 +919,7 @@ class ExpectationExplorer(object):
                     parse_strings_as_datetimes_widget.value = False
                     parse_strings_as_datetimes_widget.disabled = True
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         min_max_type_widget.observe(on_min_max_type_change, names='value')
@@ -929,9 +929,9 @@ class ExpectationExplorer(object):
         }
 
     def generate_min_value_widget_dict(self, expectation_state, min_value=None, column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         min_value_widget_dict = expectation_state['kwargs'].get('min_value', {})
@@ -1002,7 +1002,7 @@ class ExpectationExplorer(object):
                     description='min_value',
                     placeholder='press enter to confirm...'
                 )
- 
+
             @expectation_feedback_widget.capture(clear_output=True)
             def on_min_value_change(change):
                 min_max_type = expectation_state['kwargs']['min_max_type']['kwarg_widget'].value
@@ -1026,7 +1026,7 @@ class ExpectationExplorer(object):
                 ge_expectation_kwargs['min_value'] = min_value
                 ge_expectation_kwargs['max_value'] = max_value
 
-                getattr(data_asset, expectation_type)(include_config=True,
+                getattr(batch, expectation_type)(include_config=True,
                                                  **ge_expectation_kwargs)
 
             min_value_widget.observe(on_min_value_change, names='value')
@@ -1036,7 +1036,7 @@ class ExpectationExplorer(object):
             def on_min_value_change(change):
                 ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                     expectation_state['kwargs'])
-                getattr(data_asset, expectation_type)(include_config=True,
+                getattr(batch, expectation_type)(include_config=True,
                     **ge_expectation_kwargs)
 
             min_value_widget.observe(on_min_value_change, names='value')
@@ -1054,9 +1054,9 @@ class ExpectationExplorer(object):
         return min_value_widget_dict
 
     def generate_max_value_widget_dict(self, expectation_state, max_value=None, column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
         min_value_widget_dict = expectation_state['kwargs'].get('min_value')
@@ -1097,7 +1097,7 @@ class ExpectationExplorer(object):
             elif expectation_type in self.min_max_subtypes['float']['unbounded']:
                 default_min_value = -int(9e300)
                 default_max_value = int(9e300)
-            
+
             if max_value_widget:
                 max_value_widget.value = max_value if max_value else default_max_value
             else:
@@ -1152,7 +1152,7 @@ class ExpectationExplorer(object):
                 ge_expectation_kwargs['min_value'] = min_value
                 ge_expectation_kwargs['max_value'] = max_value
 
-                getattr(data_asset, expectation_type)(include_config=True,
+                getattr(batch, expectation_type)(include_config=True,
                                                  **ge_expectation_kwargs)
 
             max_value_widget.observe(on_max_value_change, names='value')
@@ -1162,7 +1162,7 @@ class ExpectationExplorer(object):
             def on_max_value_change(change):
                 ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                     expectation_state['kwargs'])
-                getattr(data_asset, expectation_type)(include_config=True,
+                getattr(batch, expectation_type)(include_config=True,
                     **ge_expectation_kwargs)
 
             max_value_widget.observe(on_max_value_change, names='value')
@@ -1178,9 +1178,9 @@ class ExpectationExplorer(object):
         return max_value_widget_dict
 
     def generate_value_set_widget_dict(self, expectation_state, value_set=[], column=None, **expectation_kwargs):
-        data_asset_name = expectation_state['data_asset_name']
-        data_asset = self.state['data_assets'].get(data_asset_name)[
-            'data_asset']
+        batch_id = expectation_state['batch_id']
+        batch = self.state['batches'].get(batch_id)[
+            'batch']
         expectation_feedback_widget = expectation_state['expectation_feedback_widget']
         expectation_type = expectation_state['expectation_type']
 
@@ -1234,7 +1234,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(
+            getattr(batch, expectation_type)(
                 include_config=True, **ge_expectation_kwargs)
 
         @expectation_feedback_widget.capture(clear_output=True)
@@ -1262,7 +1262,7 @@ class ExpectationExplorer(object):
             ge_expectation_kwargs = self.expectation_kwarg_dict_to_ge_kwargs(
                 expectation_state['kwargs'])
 
-            getattr(data_asset, expectation_type)(include_config=True, **ge_expectation_kwargs)
+            getattr(batch, expectation_type)(include_config=True, **ge_expectation_kwargs)
 
         value_set_widget_number_input.on_submit(on_value_set_number_input_submit)
         value_set_widget_string_input.on_submit(on_value_set_string_input_submit)
@@ -1290,7 +1290,7 @@ class ExpectationExplorer(object):
             'kwarg_widget': widgets.HBox([static_widget, warning_message]),
             'ge_kwarg_value': ge_kwarg_value
         }
-        
+
         return widget_dict
 
     # widget generators for general info shared between all expectations
@@ -1301,11 +1301,11 @@ class ExpectationExplorer(object):
         return widgets.HTML(value="<span><strong>Expectation Type: </strong>{expectation_type}</span>".format(expectation_type=expectation_type))
 
     def generate_basic_expectation_info_box(
-        self, data_asset_name, expectation_type, success_widget, validation_time, column=None):
+        self, batch_id, expectation_type, success_widget, validation_time, column=None):
         if column:
             return widgets.VBox(
                 [
-                    widgets.HTML(value="<div><strong>Data Asset Name: </strong>{data_asset_name}</div>".format(data_asset_name=data_asset_name)),
+                    widgets.HTML(value="<div><strong>Batch ID: </strong>{batch_id}</div>".format(batch_id=batch_id)),
                     self.generate_column_widget(column=column),
                     self.generate_expectation_type_widget(expectation_type),
                     success_widget,
@@ -1317,7 +1317,7 @@ class ExpectationExplorer(object):
             return widgets.VBox(
                 [
                     widgets.HTML(
-                        value="<div><strong>Data Asset Name: </strong>{data_asset_name}</div>".format(data_asset_name=data_asset_name)),
+                        value="<div><strong>Batch ID: </strong>{batch_id}</div>".format(batch_id=batch_id)),
                     self.generate_expectation_type_widget(expectation_type),
                     success_widget,
                     widgets.HTML(
@@ -1341,30 +1341,30 @@ class ExpectationExplorer(object):
         return result_detail_widgets
 
     # widget generator for complete expectation widget
-    
+
     def create_expectation_widget(
             self,
-            data_asset,
+            batch,
             expectation_validation_result,
             collapsed=False
     ):
         validation_time = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M")
-        data_asset_name = data_asset.data_asset_name
-        data_asset_state = self.state['data_assets'].get(data_asset_name)
+        batch_id = batch.batch_id
+        batch_state = self.state['batches'].get(batch_id)
         expectation_type = expectation_validation_result.expectation_config.expectation_type
         expectation_kwargs = expectation_validation_result.expectation_config['kwargs']
         column = expectation_kwargs.get('column')
 
-        if data_asset_state:
+        if batch_state:
             existing_expectation_state = self.get_expectation_state(
-                data_asset_name=data_asset_name,
+                batch_id=batch_id,
                 expectation_type=expectation_type,
                 column=column
             )
             if existing_expectation_state:
                 return self.update_expectation_state(existing_expectation_state, expectation_validation_result, validation_time)
         else:
-            self.initialize_data_asset_state(data_asset)
+            self.initialize_batch_state(batch)
 
         # success_widget
         success = expectation_validation_result.success
@@ -1394,7 +1394,7 @@ class ExpectationExplorer(object):
             'success': success_widget,
             'expectation_type': expectation_type,
             'expectation_feedback_widget': expectation_feedback_widget,
-            'data_asset_name': data_asset_name,
+            'batch_id': batch_id,
             'result_detail_widget': result_detail_widget,
             'kwargs': {
             }
@@ -1408,7 +1408,7 @@ class ExpectationExplorer(object):
 
         # widget with basic info (column, expectation_type)
         basic_expectation_info_box = self.generate_basic_expectation_info_box(
-            data_asset_name, expectation_type, success_widget, validation_time, column)
+            batch_id, expectation_type, success_widget, validation_time, column)
 
         # collect widget dicts for kwarg inputs
         expectation_kwarg_input_widget_dicts = []
@@ -1461,62 +1461,61 @@ class ExpectationExplorer(object):
         expectation_state['editor_widget'] = expectation_editor_widget
 
         # set expectation state
-        self.set_expectation_state(data_asset, expectation_state, column)
+        self.set_expectation_state(batch, expectation_state, column)
 
         # update expectation_suite_editor
-        expectation_suite_editor = self.state['data_assets'][data_asset_name].get('expectation_suite_editor')
+        expectation_suite_editor = self.state['batches'][batch_id].get('expectation_suite_editor')
         if expectation_suite_editor:
-            expectation_suite = data_asset.get_expectation_suite(
+            expectation_suite = batch.get_expectation_suite(
                 discard_failed_expectations=False)
-            expectation_suite_editor.children = self.generate_expectation_suite_editor_widgets(data_asset, expectation_suite)
+            expectation_suite_editor.children = self.generate_expectation_suite_editor_widgets(batch, expectation_suite)
 
         return expectation_editor_widget
 
     # expectation_suite_editing
-    def get_column_names(self, data_asset_name):
-        data_asset_state = self.state['data_assets'].get(data_asset_name)
-        if not data_asset_state: return []
-        data_asset_expectations = data_asset_state.get('expectations')
-        if not data_asset_expectations: return []
+    def get_column_names(self, batch_id):
+        batch_state = self.state['batches'].get(batch_id)
+        if not batch_state: return []
+        batch_expectations = batch_state.get('expectations')
+        if not batch_expectations: return []
 
-        column_names = [column_name for column_name in data_asset_expectations.keys() if column_name != 'non_column_expectations']
+        column_names = [column_name for column_name in batch_expectations.keys() if column_name != 'non_column_expectations']
         column_names.sort()
-        if 'non_column_expectations' in data_asset_expectations.keys():
+        if 'non_column_expectations' in batch_expectations.keys():
             column_names.insert(0, 'non_column_expectations')
 
         return column_names
 
-    def get_expectation_types(self, data_asset_name):
-        data_asset_state = self.state['data_assets'].get(data_asset_name)
-        data_asset_expectations = data_asset_state.get('expectations')
-        if not data_asset_state or not data_asset_expectations:
+    def get_expectation_types(self, batch_id):
+        batch_state = self.state['batches'].get(batch_id)
+        batch_expectations = batch_state.get('expectations')
+        if not batch_state or not batch_expectations:
             return []
 
         expectation_types = []
 
-        for expectation_group in data_asset_expectations.values():
+        for expectation_group in batch_expectations.values():
             expectation_types += list(expectation_group.keys())
 
         return list(set(expectation_types))
 
-    def generate_expectation_suite_editor_widgets(self, data_asset, expectation_suite):
-        data_asset_name = data_asset.data_asset_name
-        column_names = self.get_column_names(data_asset_name)
+    def generate_expectation_suite_editor_widgets(self, batch, expectation_suite):
+        batch_id = batch.batch_id
+        column_names = self.get_column_names(batch_id)
         column_accordions = []
-        data_asset_state = self.state['data_assets'].get(data_asset_name, {})
-        data_asset_expectations = data_asset_state.get('expectations', {})
+        batch_state = self.state['batches'].get(batch_id, {})
+        batch_expectations = batch_state.get('expectations', {})
 
-        ge_version = expectation_suite.get(
-            'meta')['great_expectations.__version__']
+        ge_version = expectation_suite.meta['great_expectations.__version__']
         column_count = len(column_names)
-        expectation_count = len(expectation_suite['expectations'])
+        expectation_count = len(expectation_suite.expectations)
 
         summary_widget_content = """\
             <div>
                 <h1>Expectation Suite Editor</h1>
                 <hr>
                 <ul>
-                    <li><strong>Data Asset Name</strong>: {data_asset_name}</li>
+                    <li><strong>Batch ID</strong>: {batch_id}</li>
                     <li><strong>Great Expectations Version</strong>: {ge_version}</li>
                     <li><strong>Column Count</strong>: {column_count}</li>
                     <li><strong>Expectation Count</strong>: {expectation_count}</li>
@@ -1525,7 +1524,7 @@ class ExpectationExplorer(object):
                 <h2>Columns:</h2>
             </div>\
         """.format(
-            data_asset_name=data_asset_name,
+            batch_id=batch_id,
             ge_version=ge_version,
             column_count=column_count,
             expectation_count=expectation_count
@@ -1539,7 +1538,7 @@ class ExpectationExplorer(object):
 
         for column_name in column_names:
             expectation_editor_widgets = []
-            column_expectations = data_asset_expectations[column_name]
+            column_expectations = batch_expectations[column_name]
             expectation_types = list(column_expectations.keys())
             expectation_types.sort()
             for expectation_type in expectation_types:
@@ -1556,20 +1555,20 @@ class ExpectationExplorer(object):
 
         return [summary_widget] + column_accordions
 
-    def edit_expectation_suite(self, data_asset):
-        data_asset_name = data_asset.data_asset_name
-        expectation_suite = data_asset.get_expectation_suite(
+    def edit_expectation_suite(self, batch):
+        batch_id = batch.batch_id
+        expectation_suite = batch.get_expectation_suite(
             discard_failed_expectations=False)
-        expectations = expectation_suite.get('expectations')
+        expectations = expectation_suite.expectations
 
         ################### editor widgets
         for expectation in expectations:
-            expectation_type = expectation.get('expectation_type')
-            expectation_kwargs = expectation.get('kwargs')
-            editor_widget = getattr(data_asset, expectation_type)(
+            expectation_type = expectation.expectation_type
+            expectation_kwargs = expectation.kwargs
+            editor_widget = getattr(batch, expectation_type)(
                 include_config=True, **expectation_kwargs)
 
-        expectation_suite_editor_widgets = self.generate_expectation_suite_editor_widgets(data_asset, expectation_suite)
+        expectation_suite_editor_widgets = self.generate_expectation_suite_editor_widgets(batch, expectation_suite)
         ###################
         expectation_suite_editor = widgets.VBox(
             children=expectation_suite_editor_widgets,
@@ -1578,6 +1577,6 @@ class ExpectationExplorer(object):
             )
         )
 
-        self.state['data_assets'][data_asset_name]['expectation_suite_editor'] = expectation_suite_editor
+        self.state['batches'][batch_id]['expectation_suite_editor'] = expectation_suite_editor
 
         return expectation_suite_editor
