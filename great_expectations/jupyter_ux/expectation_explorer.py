@@ -361,7 +361,7 @@ class ExpectationExplorer(object):
 
         discard_failed_expectations_checkbox = widgets.Checkbox(
             value=False,
-            description='Discard Failed Expectation Suites',
+            description='Discard Failed Expectations',
             disabled=False,
             indent=False
         )
