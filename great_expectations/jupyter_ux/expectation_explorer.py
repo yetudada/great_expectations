@@ -1577,6 +1577,9 @@ class ExpectationExplorer(object):
             )
         )
 
+        if not self.state['batches'].get(batch_id):
+            self.initialize_batch_state(batch)
+
         self.state['batches'][batch_id]['expectation_suite_editor'] = expectation_suite_editor
 
         return expectation_suite_editor
