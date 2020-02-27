@@ -350,7 +350,7 @@ class ExpectationExplorer(object):
 
         return remove_expectation_button
 
-    def generate_save_expectation_suite_button(self, batch):
+    def generate_save_expectation_suite_hbox(self, batch):
         save_expectation_suite_button = widgets.Button(
             description='Save Expectation Suite',
             button_style='success',
@@ -359,13 +359,26 @@ class ExpectationExplorer(object):
             layout={'width': 'auto'}
         )
 
+        discard_failed_expectations_checkbox = widgets.Checkbox(
+            value=False,
+            description='Discard Failed Expectation Suites',
+            disabled=False,
+            indent=False
+        )
+
+        save_expectation_suite_hbox = widgets.HBox(
+            children=[save_expectation_suite_button, discard_failed_expectations_checkbox])
+
+
         def on_click(button):
-            batch.save_expectation_suite()
+            batch.save_expectation_suite(discard_failed_expectations=discard_failed_expectations_checkbox.value)
 
         save_expectation_suite_button.on_click(on_click)
 
-        return save_expectation_suite_button
+        return save_expectation_suite_hbox
 
+    def toggle_state_discard_failed_expectations(self):
+        self.state["discard_failed_expectations"] = not self.state["discard_failed_expectations"]
 
     def generate_tag_button(self, expectation_state, tag, tag_list, widget_display):
         batch_id = expectation_state['batch_id']
@@ -1570,11 +1583,10 @@ class ExpectationExplorer(object):
             column_accordion.selected_index = None
             column_accordions.append(column_accordion)
 
-        save_expectation_button = self.generate_save_expectation_suite_button(
+        save_expectation_suite_hbox = self.generate_save_expectation_suite_hbox(
             batch=batch)
 
-
-        return [summary_widget] + column_accordions + [save_expectation_button]
+        return [summary_widget] + column_accordions + [save_expectation_suite_hbox]
 
     def edit_expectation_suite(self, batch):
         batch_id = batch.batch_id
