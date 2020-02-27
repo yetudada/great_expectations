@@ -75,7 +75,6 @@ from great_expectations.data_context.types.resource_identifiers import Validatio
 context = ge.data_context.ExplorerDataContext()
 
 expectation_suite_name = "{}"  # Feel free to change the name of your suite here. Renaming this will not remove the other one.
-context.create_expectation_suite(expectation_suite_name, overwrite_existing=True)
 
 batch_kwargs = {}
 batch = context.get_batch(batch_kwargs, expectation_suite_name)

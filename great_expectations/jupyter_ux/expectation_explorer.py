@@ -1585,7 +1585,7 @@ class ExpectationExplorer(object):
         ################### editor widgets
         for expectation in expectations:
             expectation_type = expectation.expectation_type
-            expectation_kwargs = expectation.kwargs
+            expectation_kwargs = expectation.kwargs.to_json_dict()
             editor_widget = getattr(batch, expectation_type)(
                 include_config=True, **expectation_kwargs)
 
@@ -1597,6 +1597,9 @@ class ExpectationExplorer(object):
                 border='2px solid black',
             )
         )
+
+        if not self.state['batches'].get(batch_id):
+            self.initialize_batch_state(batch)
 
         self.state['batches'][batch_id]['expectation_suite_editor'] = expectation_suite_editor
 
