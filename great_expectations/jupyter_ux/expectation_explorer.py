@@ -1564,7 +1564,7 @@ class ExpectationExplorer(object):
         ################### editor widgets
         for expectation in expectations:
             expectation_type = expectation.expectation_type
-            expectation_kwargs = expectation.kwargs
+            expectation_kwargs = expectation.kwargs.to_json_dict()
             editor_widget = getattr(batch, expectation_type)(
                 include_config=True, **expectation_kwargs)
 
