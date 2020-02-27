@@ -72,7 +72,7 @@ import great_expectations as ge
 import great_expectations.jupyter_ux
 from great_expectations.data_context.types.resource_identifiers import ValidationResultIdentifier
 
-context = ge.data_context.DataContext()
+context = ge.data_context.ExplorerDataContext()
 
 expectation_suite_name = "{}"  # Feel free to change the name of your suite here. Renaming this will not remove the other one.
 context.create_expectation_suite(expectation_suite_name, overwrite_existing=True)
@@ -200,7 +200,7 @@ context.open_data_docs(validation_result_identifier)"""
 
         self.add_header(suite_name, batch_kwargs)
         self.add_authoring_intro()
-        self.add_expectation_cells_from_suite(suite.expectations)
+        # self.add_expectation_cells_from_suite(suite.expectations)
         self.add_footer()
 
         return self.notebook
@@ -227,4 +227,8 @@ context.open_data_docs(validation_result_identifier)"""
 Add expectations by calling specific expectation methods on the `batch` object. They all begin with `.expect_` which makes autocompleting easy using tab.
 
 You can see all the available expectations in the **[expectation glossary](https://docs.greatexpectations.io/en/latest/expectation_glossary.html?utm_source=notebook&utm_medium=create_expectations)**."""
+        )
+        self.add_code_cell(
+            """\
+batch.edit_expectation_suite()"""
         )
