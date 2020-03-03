@@ -87,10 +87,7 @@ batch.head()""".format(
     def add_footer(self):
         self.add_markdown_cell(
             """\
-## Save & Review Your Expectations
-
-Let's save the expectation suite as a JSON file in the `great_expectations/expectations` directory of your project.
-If you decide not to save some expectations that you created, use [remove_expectaton method](https://docs.greatexpectations.io/en/latest/module_docs/data_asset_module.html?highlight=remove_expectation&utm_source=notebook&utm_medium=edit_expectations#great_expectations.data_asset.data_asset.DataAsset.remove_expectation).
+## Review Your Expectations
 
 Let's now rebuild your Data Docs, which helps you communicate about your data with both machines and humans."""
         )
@@ -98,20 +95,8 @@ Let's now rebuild your Data Docs, which helps you communicate about your data wi
         #  to accomplish in their dev loop
         self.add_code_cell(
             """\
-batch.save_expectation_suite(discard_failed_expectations=False)
-
-# Let's make a simple sortable timestamp. Note this could come from your pipeline runner.
-run_id = datetime.utcnow().strftime("%Y%m%dT%H%M%S.%fZ")
-
-results = context.run_validation_operator("action_list_operator", assets_to_validate=[batch], run_id=run_id)
-expectation_suite_identifier = list(results["details"].keys())[0]
-validation_result_identifier = ValidationResultIdentifier(
-    expectation_suite_identifier=expectation_suite_identifier,
-    batch_identifier=batch.batch_kwargs.to_id(),
-    run_id=run_id
-)
 context.build_data_docs()
-context.open_data_docs(validation_result_identifier)"""
+context.open_data_docs()"""
         )
 
     def add_code_cell(self, code, lint=False):
