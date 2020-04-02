@@ -11,7 +11,11 @@ import datetime
 
 from marshmallow import ValidationError
 from six import PY3, string_types
-from collections import namedtuple, Hashable, Counter, defaultdict
+from collections import namedtuple, Counter, defaultdict
+try:
+    from collections.abc import Hashable
+except ImportError:  # Python 2.7
+    from collections import Hashable
 
 from great_expectations import __version__ as ge_version
 from great_expectations.data_asset.util import (
@@ -305,7 +309,7 @@ class DataAsset(object):
         """
         if expectation_suite is not None:
             if isinstance(expectation_suite, dict):
-                expectation_suite = expectationSuiteSchema.load(expectation_suite).data
+                expectation_suite = expectationSuiteSchema.load(expectation_suite)
             else:
                 expectation_suite = copy.deepcopy(expectation_suite)
             self._expectation_suite = expectation_suite
@@ -832,7 +836,7 @@ class DataAsset(object):
             self._data_context.save_expectation_suite(expectation_suite)
         elif filepath is not None:
             with open(filepath, 'w') as outfile:
-                json.dump(expectationSuiteSchema.dump(expectation_suite).data, outfile, indent=2)
+                json.dump(expectationSuiteSchema.dump(expectation_suite), outfile, indent=2)
         else:
             raise ValueError("Unable to save config: filepath or data_context must be available.")
 
@@ -932,7 +936,7 @@ class DataAsset(object):
             elif isinstance(expectation_suite, string_types):
                 try:
                     with open(expectation_suite, 'r') as infile:
-                        expectation_suite = expectationSuiteSchema.loads(infile.read()).data
+                        expectation_suite = expectationSuiteSchema.loads(infile.read())
                 except ValidationError:
                     raise
                 except IOError:
@@ -1114,6 +1118,17 @@ class DataAsset(object):
         """
         self._expectation_suite.evaluation_parameters.update(
             {parameter_name: parameter_value})
+
+    def add_citation(self, comment, batch_kwargs=None, batch_markers=None, batch_parameters=None, citation_date=None):
+        if batch_kwargs is None:
+            batch_kwargs = self.batch_kwargs
+        if batch_markers is None:
+            batch_markers = self.batch_markers
+        if batch_parameters is None:
+            batch_parameters = self.batch_parameters
+        self._expectation_suite.add_citation(comment, batch_kwargs=batch_kwargs, batch_markers=batch_markers,
+                                             batch_parameters=batch_parameters,
+                                             citation_date=citation_date)
 
     # PENDING DELETION: 20200130 - JPC - Ready for deletion upon release of 0.9.0 with no data_asset_name
     #

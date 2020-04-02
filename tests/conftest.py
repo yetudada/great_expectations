@@ -130,7 +130,6 @@ def spark_session(test_backends):
 @pytest.fixture
 def empty_expectation_suite():
     expectation_suite = {
-        'data_asset_name': "empty_suite_fixture",
         'expectation_suite_name': "default",
         'meta': {},
         'expectations': []
@@ -471,10 +470,7 @@ def non_numeric_high_card_dataset(test_backend):
     return get_dataset(test_backend, data, schemas=schemas)
 
 
-@pytest.fixture
-def dataset(test_backend):
-    """Provide dataset fixtures that have special values and/or are otherwise useful outside
-    the standard json testing framework"""
+def dataset_sample_data(test_backend):
     # No infinities for mysql
     if test_backend == "mysql":
         data = {
@@ -484,7 +480,7 @@ def dataset(test_backend):
         }
     else:
         data = {
-            "infinities": [-np.inf, -10, -np.pi, 0, np.pi, 10/2.2, np.inf],
+            "infinities": [-np.inf, -10, -np.pi, 0, np.pi, 10 / 2.2, np.inf],
             "nulls": [np.nan, None, 0, 1.1, 2.2, 3.3, None],
             "naturals": [1, 2, 3, 4, 5, 6, 7]
         }
@@ -515,6 +511,21 @@ def dataset(test_backend):
             "naturals": "FloatType"
         }
     }
+    return data, schemas
+
+
+@pytest.fixture
+def dataset(test_backend):
+    """Provide dataset fixtures that have special values and/or are otherwise useful outside
+    the standard json testing framework"""
+    data, schemas = dataset_sample_data(test_backend)
+    return get_dataset(test_backend, data, schemas=schemas)
+
+
+@pytest.fixture
+def pandas_dataset():
+    test_backend = "PandasDataset"
+    data, schemas = dataset_sample_data(test_backend)
     return get_dataset(test_backend, data, schemas=schemas)
 
 
@@ -798,7 +809,7 @@ def filesystem_csv_4(tmp_path_factory):
 @pytest.fixture
 def titanic_profiled_evrs_1():
     with open(file_relative_path(__file__, './render/fixtures/BasicDatasetProfiler_evrs.json'), 'r') as infile:
-        return expectationSuiteValidationResultSchema.loads(infile.read()).data
+        return expectationSuiteValidationResultSchema.loads(infile.read())
 
 
 @pytest.fixture
@@ -811,7 +822,7 @@ def titanic_profiled_name_column_evrs():
     )
 
     with open(file_relative_path(__file__, "./render/fixtures/BasicDatasetProfiler_evrs.json"), "r") as infile:
-        titanic_profiled_evrs_1 = expectationSuiteValidationResultSchema.load(json.load(infile)).data
+        titanic_profiled_evrs_1 = expectationSuiteValidationResultSchema.load(json.load(infile))
 
     evrs_by_column = Renderer()._group_evrs_by_column(titanic_profiled_evrs_1)
     name_column_evrs = evrs_by_column["Name"]
@@ -822,7 +833,7 @@ def titanic_profiled_name_column_evrs():
 @pytest.fixture
 def titanic_profiled_expectations_1():
     with open(file_relative_path(__file__, "./render/fixtures/BasicDatasetProfiler_expectations.json"), 'r') as infile:
-        return expectationSuiteSchema.load(json.load(infile)).data
+        return expectationSuiteSchema.load(json.load(infile))
 
 
 @pytest.fixture
@@ -830,7 +841,7 @@ def titanic_profiled_name_column_expectations():
     from great_expectations.render.renderer.renderer import Renderer
 
     with open(file_relative_path(__file__, "./render/fixtures/BasicDatasetProfiler_expectations.json"), 'r') as infile:
-        titanic_profiled_expectations = expectationSuiteSchema.load(json.load(infile)).data
+        titanic_profiled_expectations = expectationSuiteSchema.load(json.load(infile))
 
     columns, ordered_columns = Renderer()._group_and_order_expectations_by_column(titanic_profiled_expectations)
     name_column_expectations = columns["Name"]
@@ -841,7 +852,7 @@ def titanic_profiled_name_column_expectations():
 @pytest.fixture
 def titanic_validation_results():
     with open(file_relative_path(__file__, "./test_sets/expected_cli_results_default.json"), "r") as infile:
-        return expectationSuiteValidationResultSchema.load(json.load(infile)).data
+        return expectationSuiteValidationResultSchema.load(json.load(infile))
 
 
 # various types of evr

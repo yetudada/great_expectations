@@ -9,6 +9,7 @@ from six import string_types
 
 from great_expectations.data_context.store.store_backend import StoreBackend
 from great_expectations.data_context.util import safe_mmkdir
+from great_expectations.exceptions import StoreBackendError
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class TupleStoreBackend(StoreBackend):
 
     def __init__(self, filepath_template=None, filepath_prefix=None, filepath_suffix=None, forbidden_substrings=None,
                  platform_specific_separator=True, fixed_length_key=False):
-        super(TupleStoreBackend, self).__init__(fixed_length_key=fixed_length_key)
+        super().__init__(fixed_length_key=fixed_length_key)
         if forbidden_substrings is None:
             forbidden_substrings = ["/", "\\"]
         self.forbidden_substrings = forbidden_substrings
@@ -35,6 +36,12 @@ class TupleStoreBackend(StoreBackend):
             raise ValueError("filepath_suffix may only be used when filepath_template is None")
 
         self.filepath_template = filepath_template
+        if filepath_prefix and len(filepath_prefix) > 0:
+            # Validate that the filepath prefix does not end with a forbidden substring
+            if filepath_prefix[-1] in self.forbidden_substrings:
+                raise StoreBackendError("Unable to initialize TupleStoreBackend: filepath_prefix may not end with a "
+                                        "forbidden substring. Current forbidden substrings are " +
+                                        str(forbidden_substrings))
         self.filepath_prefix = filepath_prefix
         self.filepath_suffix = filepath_suffix
 
@@ -50,7 +57,7 @@ class TupleStoreBackend(StoreBackend):
             self._fixed_length_key = True
 
     def _validate_key(self, key):
-        super(TupleStoreBackend, self)._validate_key(key)
+        super()._validate_key(key)
 
         for key_element in key:
             for substring in self.forbidden_substrings:
@@ -71,6 +78,8 @@ class TupleStoreBackend(StoreBackend):
             ))
 
     def _convert_key_to_filepath(self, key):
+        # NOTE: This method uses a hard-coded forward slash as a separator,
+        # and then replaces that with a platform-specific separator if requested (the default)
         self._validate_key(key)
         if self.filepath_template:
             converted_string = self.filepath_template.format(*list(key))
@@ -78,24 +87,26 @@ class TupleStoreBackend(StoreBackend):
             converted_string = '/'.join(key)
 
         if self.filepath_prefix:
-            converted_string = self.filepath_prefix + converted_string
+            converted_string = self.filepath_prefix + "/" + converted_string
         if self.filepath_suffix:
             converted_string += self.filepath_suffix
         if self.platform_specific_separator:
-            converted_string = os.path.join(*converted_string.split('/'))
+            converted_string = os.path.normpath(converted_string)
 
         return converted_string
 
     def _convert_filepath_to_key(self, filepath):
-        # filepath_template (for now) is always specified with forward slashes, but it is then
-        # used to (1) dynamically construct and evaluate a regex, and (2) split the provided (observed) filepath
+        if self.platform_specific_separator:
+            filepath = os.path.normpath(filepath)
+
         if self.filepath_prefix:
-            if not filepath.startswith(self.filepath_prefix):
+            if not filepath.startswith(self.filepath_prefix) and len(filepath) >= len(self.filepath_prefix) + 1:
                 # If filepath_prefix is set, we expect that it is the first component of a valid filepath.
                 raise ValueError("filepath must start with the filepath_prefix when one is set by the store_backend")
             else:
                 # Remove the prefix before processing
-                filepath = filepath[len(self.filepath_prefix):]
+                # Also remove the separator that was added, which may have been platform-dependent
+                filepath = filepath[len(self.filepath_prefix) + 1:]
 
         if self.filepath_suffix:
             if not filepath.endswith(self.filepath_suffix):
@@ -106,6 +117,8 @@ class TupleStoreBackend(StoreBackend):
                 filepath = filepath[:-len(self.filepath_suffix)]
 
         if self.filepath_template:
+            # filepath_template is always specified with forward slashes, but it is then
+            # used to (1) dynamically construct and evaluate a regex, and (2) split the provided (observed) filepath
             if self.platform_specific_separator:
                 filepath_template = os.path.join(*self.filepath_template.split('/'))
                 filepath_template = filepath_template.replace('\\', '\\\\')
@@ -136,6 +149,7 @@ class TupleStoreBackend(StoreBackend):
 
             new_key = tuple(new_key)
         else:
+            filepath = os.path.normpath(filepath)
             new_key = tuple(filepath.split(os.sep))
 
         return new_key
@@ -174,7 +188,7 @@ class TupleFilesystemStoreBackend(TupleStoreBackend):
                  platform_specific_separator=True,
                  root_directory=None,
                  fixed_length_key=False):
-        super(TupleFilesystemStoreBackend, self).__init__(
+        super().__init__(
             filepath_template=filepath_template,
             filepath_prefix=filepath_prefix,
             filepath_suffix=filepath_suffix,
@@ -244,8 +258,7 @@ class TupleFilesystemStoreBackend(TupleStoreBackend):
                     continue
                 elif self.filepath_suffix and not filepath.endswith(self.filepath_suffix):
                     continue
-                else:
-                    key = self._convert_filepath_to_key(filepath)
+                key = self._convert_filepath_to_key(filepath)
                 if key:
                     key_list.append(key)
 
@@ -284,7 +297,7 @@ class TupleS3StoreBackend(TupleStoreBackend):
             platform_specific_separator=False,
             fixed_length_key=False
     ):
-        super(TupleS3StoreBackend, self).__init__(
+        super().__init__(
             filepath_template=filepath_template,
             filepath_prefix=filepath_prefix,
             filepath_suffix=filepath_suffix,
@@ -349,9 +362,9 @@ class TupleS3StoreBackend(TupleStoreBackend):
                 self.prefix,
             )
             if self.filepath_prefix and not s3_object_key.startswith(self.filepath_prefix):
-                # There can be other keys located in the same bucket; they are *not* our keys
                 continue
-
+            elif self.filepath_suffix and not s3_object_key.endswith(self.filepath_suffix):
+                continue
             key = self._convert_filepath_to_key(s3_object_key)
             if key:
                 key_list.append(key)
@@ -367,7 +380,7 @@ class TupleS3StoreBackend(TupleStoreBackend):
         else:
             location = "s3-" + location
         s3_key = self._convert_key_to_filepath(key)
-        return "https://%s.amazonaws.com/%s/%s/%s" % (location, self.bucket, self.prefix, s3_key)
+        return "https://%s.amazonaws.com/%s/%s%s" % (location, self.bucket, self.prefix, s3_key)
 
     def _has_key(self, key):
         all_keys = self.list_keys()
@@ -396,7 +409,7 @@ class TupleGCSStoreBackend(TupleStoreBackend):
             platform_specific_separator=False,
             fixed_length_key=False
     ):
-        super(TupleGCSStoreBackend, self).__init__(
+        super().__init__(
             filepath_template=filepath_template,
             filepath_prefix=filepath_prefix,
             filepath_suffix=filepath_suffix,
@@ -453,14 +466,20 @@ class TupleGCSStoreBackend(TupleStoreBackend):
                 gcs_object_name,
                 self.prefix,
             )
-
+            if self.filepath_prefix and not gcs_object_key.startswith(self.filepath_prefix):
+                continue
+            elif self.filepath_suffix and not gcs_object_key.endswith(self.filepath_suffix):
+                continue
             key = self._convert_filepath_to_key(gcs_object_key)
             if key:
                 key_list.append(key)
 
         return key_list
 
+    def get_url_for_key(self, key, protocol=None):
+        path = self._convert_key_to_filepath(key)
+        return "https://storage.googleapis.com/" + self.bucket + "/" + path
+
     def _has_key(self, key):
         all_keys = self.list_keys()
         return key in all_keys
-

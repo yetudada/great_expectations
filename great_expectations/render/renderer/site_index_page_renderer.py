@@ -1,16 +1,23 @@
-from collections import OrderedDict
 import logging
+from collections import OrderedDict
+
+import traceback
 
 from .renderer import Renderer
 from great_expectations.render.types import (
     RenderedSectionContent,
     RenderedDocumentContent,
-    RenderedHeaderContent, RenderedStringTemplateContent, RenderedTableContent, RenderedBulletListContent
+    RenderedHeaderContent,
+    RenderedStringTemplateContent,
+    RenderedTableContent,
+    RenderedBulletListContent,
 )
+from great_expectations.exceptions import GreatExpectationsError
 
 from .call_to_action_renderer import CallToActionRenderer
 
 logger = logging.getLogger(__name__)
+
 
 # FIXME : This class needs to be rebuilt to accept SiteSectionIdentifiers as input.
 # FIXME : This class needs tests.
@@ -234,7 +241,7 @@ class SiteIndexPageRenderer(Renderer):
                 "header_row": table_header_row,
                 "table": table_rows,
                 "styling": {
-                    "classes": ["col-12", "ge-index-page-table-container", "pl-5", "pr-4"],
+                    "classes": ["col-12", "ge-index-page-table-container"],
                     "styles": {
                         "margin-top": "10px"
                     },
@@ -279,7 +286,7 @@ class SiteIndexPageRenderer(Renderer):
                         "header_row": ["Profiling Results"],
                         "table": profiling_table_rows,
                         "styling": {
-                            "classes": ["col-12", "ge-index-page-table-container", "pl-5", "pr-4"],
+                            "classes": ["col-12", "ge-index-page-table-container"],
                             "styles": {
                                 "margin-top": "10px"
                             },
@@ -309,7 +316,11 @@ class SiteIndexPageRenderer(Renderer):
             return index_page_document
 
         except Exception as e:
-            logger.error("Exception occurred during data docs rendering: ", e, exc_info=True)
-
-
-
+            exception_message = f'''\
+An unexpected Exception occurred during data docs rendering.  Because of this error, certain parts of data docs will \
+not be rendered properly and/or may not appear altogether.  Please use the trace, included in this message, to \
+diagnose and repair the underlying issue.  Detailed information follows:  
+            '''
+            exception_traceback = traceback.format_exc()
+            exception_message += f'{type(e).__name__}: "{str(e)}".  Traceback: "{exception_traceback}".'
+            logger.error(exception_message, e, exc_info=True)

@@ -14,14 +14,18 @@ from marshmallow import ValidationError
 from ruamel.yaml import YAML, YAMLError
 from six import string_types
 
-from great_expectations.core import ExpectationSuite, get_metric_kwargs_id
+from great_expectations.util import verify_dynamic_loading_support
+from great_expectations.core import (
+    ExpectationSuite,
+    get_metric_kwargs_id,
+)
 from great_expectations.core.id_dict import BatchKwargs
 from great_expectations.core.metric import ValidationMetricIdentifier
 from great_expectations.core.util import nested_update
 from great_expectations.data_context.types.base import (
     DataContextConfig,
     dataContextConfigSchema,
-)
+    datasourceConfigSchema, DatasourceConfig)
 from great_expectations.data_context.util import (
     file_relative_path,
     substitute_config_variable,
@@ -83,7 +87,7 @@ class BaseDataContext(object):
     PROFILING_ERROR_CODE_SPECIFIED_DATA_ASSETS_NOT_FOUND = 3
     PROFILING_ERROR_CODE_NO_GENERATOR_FOUND = 4
     PROFILING_ERROR_CODE_MULTIPLE_GENERATORS_FOUND = 5
-    UNCOMMITTED_DIRECTORIES = ["data_docs", "samples", "validations"]
+    UNCOMMITTED_DIRECTORIES = ["data_docs", "validations"]
     GE_UNCOMMITTED_DIR = "uncommitted"
     BASE_DIRECTORIES = [
         "expectations",
@@ -150,15 +154,22 @@ class BaseDataContext(object):
         self._evaluation_parameter_dependencies = {}
 
     def _build_store(self, store_name, store_config):
+        module_name = 'great_expectations.data_context.store'
         new_store = instantiate_class_from_config(
             config=store_config,
             runtime_environment={
                 "root_directory": self.root_directory,
             },
             config_defaults={
-                "module_name": "great_expectations.data_context.store"
+                "module_name": module_name
             }
         )
+        if not new_store:
+            raise ge_exceptions.ClassInstantiationError(
+                module_name=module_name,
+                package_name=None,
+                class_name=store_config['class_name']
+            )
         self._stores[store_name] = new_store
         return new_store
 
@@ -209,15 +220,23 @@ class BaseDataContext(object):
         """
 
         self._project_config["validation_operators"][validation_operator_name] = validation_operator_config
+        config = self._project_config_with_variables_substituted["validation_operators"][validation_operator_name]
+        module_name = 'great_expectations.validation_operators'
         new_validation_operator = instantiate_class_from_config(
-            config=self._project_config_with_variables_substituted["validation_operators"][validation_operator_name],
+            config=config,
             runtime_environment={
                 "data_context": self,
             },
             config_defaults={
-                "module_name": "great_expectations.validation_operators"
+                "module_name": module_name
             }
         )
+        if not new_validation_operator:
+            raise ge_exceptions.ClassInstantiationError(
+                module_name=module_name,
+                package_name=None,
+                class_name=config['class_name']
+            )
         self.validation_operators[validation_operator_name] = new_validation_operator
         return new_validation_operator
 
@@ -258,6 +277,7 @@ class BaseDataContext(object):
             for site_name, site_config in sites.items():
                 if (site_names and site_name in site_names) or not site_names:
                     complete_site_config = site_config
+                    module_name = 'great_expectations.render.renderer.site_builder'
                     site_builder = instantiate_class_from_config(
                         config=complete_site_config,
                         runtime_environment={
@@ -265,9 +285,15 @@ class BaseDataContext(object):
                             "root_directory": self.root_directory
                         },
                         config_defaults={
-                            "module_name": "great_expectations.render.renderer.site_builder"
+                            "module_name": module_name
                         }
                     )
+                    if not site_builder:
+                        raise ge_exceptions.ClassInstantiationError(
+                            module_name=module_name,
+                            package_name=None,
+                            class_name=complete_site_config['class_name']
+                        )
 
                     url = site_builder.get_resource_url(resource_identifier=resource_identifier)
 
@@ -276,7 +302,6 @@ class BaseDataContext(object):
         return site_urls
 
     def open_data_docs(self, resource_identifier=None):
-
         """
         A stdlib cross-platform way to open a file in a browser.
 
@@ -456,7 +481,8 @@ class BaseDataContext(object):
 
         """
         datasource_obj = self.get_datasource(datasource)
-        batch_kwargs = datasource_obj.build_batch_kwargs(generator=generator, name=name, **kwargs)
+        batch_kwargs = datasource_obj.build_batch_kwargs(generator=generator, name=name, partition_id=partition_id,
+                                                         **kwargs)
         return batch_kwargs
 
     def get_batch(self, batch_kwargs, expectation_suite_name, data_asset_type=None, batch_parameters=None):
@@ -465,7 +491,7 @@ class BaseDataContext(object):
 
         Args:
             batch_kwargs: the batch_kwargs to use; must include a datasource key
-            expectation_suite_name: the name of the expectation_suite to get
+            expectation_suite_name: The ExpectationSuite or the name of the expectation_suite to get
             data_asset_type: the type of data_asset to build, with associated expectation implementations. This can
                 generally be inferred from the datasource.
             batch_parameters: optional parameters to store as the reference description of the batch. They should
@@ -473,7 +499,6 @@ class BaseDataContext(object):
 
         Returns:
             DataAsset
-
         """
         if isinstance(batch_kwargs, dict):
             batch_kwargs = BatchKwargs(batch_kwargs)
@@ -481,16 +506,26 @@ class BaseDataContext(object):
         if not isinstance(batch_kwargs, BatchKwargs):
             raise ge_exceptions.BatchKwargsError("BatchKwargs must be a BatchKwargs object or dictionary.")
 
-        if not isinstance(expectation_suite_name, (ExpectationSuiteIdentifier, string_types)):
-            raise ge_exceptions.DataContextError("expectation_suite_name must be an ExpectationSuiteIdentifier or "
-                                                 "string.")
+        if not isinstance(expectation_suite_name, (ExpectationSuite, ExpectationSuiteIdentifier, string_types)):
+            raise ge_exceptions.DataContextError(
+                "expectation_suite_name must be an ExpectationSuite, "
+                "ExpectationSuiteIdentifier or string."
+            )
+
+        if isinstance(expectation_suite_name, ExpectationSuite):
+            expectation_suite = expectation_suite_name
+        else:
+            expectation_suite = self.get_expectation_suite(expectation_suite_name)
 
         datasource = self.get_datasource(batch_kwargs.get("datasource"))
-        expectation_suite = self.get_expectation_suite(expectation_suite_name)
         batch = datasource.get_batch(batch_kwargs=batch_kwargs, batch_parameters=batch_parameters)
         if data_asset_type is None:
             data_asset_type = datasource.config.get("data_asset_type")
-        validator = Validator(batch=batch, expectation_suite=expectation_suite, expectation_engine=data_asset_type)
+        validator = Validator(
+            batch=batch,
+            expectation_suite=expectation_suite,
+            expectation_engine=data_asset_type
+        )
         return validator.get_dataset()
 
     def run_validation_operator(
@@ -525,6 +560,11 @@ class BaseDataContext(object):
             **kwargs
         )
 
+    def list_validation_operator_names(self):
+        if not self.validation_operators:
+            return []
+        return list(self.validation_operators.keys())
+
     def add_datasource(self, name, initialize=True, **kwargs):
         """Add a new datasource to the data context, with configuration provided as kwargs.
         Args:
@@ -537,9 +577,12 @@ class BaseDataContext(object):
             datasource (Datasource)
         """
         logger.debug("Starting BaseDataContext.add_datasource for %s" % name)
+        module_name = kwargs.get("module_name", "great_expectations.datasource")
+        verify_dynamic_loading_support(module_name=module_name, package_name=None)
+        class_name = kwargs.get("class_name")
         datasource_class = load_class(
-            kwargs.get("class_name"),
-            kwargs.get("module_name", "great_expectations.datasource")
+            module_name=module_name,
+            class_name=class_name
         )
 
         # For any class that should be loaded, it may control its configuration construction
@@ -549,6 +592,7 @@ class BaseDataContext(object):
         else:
             config = kwargs
 
+        config = datasourceConfigSchema.load(config)
         self._project_config["datasources"][name] = config
 
         # We perform variable substitution in the datasource's config here before using the config
@@ -583,25 +627,28 @@ class BaseDataContext(object):
         return self._project_config
 
     def _build_datasource_from_config(self, name, config):
-        if "type" in config:
-            warnings.warn("Using type configuration to build datasource. Please update to using class_name.")
-            type_ = config.pop("type")
-            datasource_class = self._get_datasource_class_from_type(type_)
-            config.update({
-                "class_name": datasource_class.__name__
-            })
+        # We convert from the type back to a dictionary for purposes of instantiation
+        if isinstance(config, DatasourceConfig):
+            config = datasourceConfigSchema.dump(config)
         config.update({
             "name": name
         })
+        module_name = 'great_expectations.datasource'
         datasource = instantiate_class_from_config(
             config=config,
             runtime_environment={
                 "data_context": self
             },
             config_defaults={
-                "module_name": "great_expectations.datasource"
+                "module_name": module_name
             }
         )
+        if not datasource:
+            raise ge_exceptions.ClassInstantiationError(
+                module_name=module_name,
+                package_name=None,
+                class_name=config['class_name']
+            )
         return datasource
 
     def get_datasource(self, datasource_name="default"):
@@ -918,6 +965,7 @@ class BaseDataContext(object):
 
                 if (site_names and site_name in site_names) or not site_names:
                     complete_site_config = site_config
+                    module_name = 'great_expectations.render.renderer.site_builder'
                     site_builder = instantiate_class_from_config(
                         config=complete_site_config,
                         runtime_environment={
@@ -926,9 +974,15 @@ class BaseDataContext(object):
                             "site_name": site_name
                         },
                         config_defaults={
-                            "module_name": "great_expectations.render.renderer.site_builder"
+                            "module_name": module_name
                         }
                     )
+                    if not site_builder:
+                        raise ge_exceptions.ClassInstantiationError(
+                            module_name=module_name,
+                            package_name=None,
+                            class_name=complete_site_config['class_name']
+                        )
                     index_page_resource_identifier_tuple = site_builder.build(resource_identifiers)
                     if index_page_resource_identifier_tuple:
                         index_page_locator_infos[site_name] = index_page_resource_identifier_tuple[0]
@@ -1601,7 +1655,7 @@ class DataContext(BaseDataContext):
             ge_exceptions.DataContextError,
             ge_exceptions.InvalidDataContextConfigError
         ) as e:
-            logger.warning(e)
+            logger.debug(e)
 
 
 class ExplorerDataContext(DataContext):

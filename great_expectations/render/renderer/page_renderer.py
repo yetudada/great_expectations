@@ -1,12 +1,13 @@
 import logging
+import os
 
-from marshmallow import ValidationError
 from six import string_types
+
+from collections import OrderedDict
 
 from ...core.id_dict import BatchKwargs
 from great_expectations.data_context.util import instantiate_class_from_config
 from great_expectations.render.util import num_to_str
-
 from .renderer import Renderer
 from ..types import (
     RenderedDocumentContent,
@@ -18,7 +19,7 @@ from ..types import (
     RenderedMarkdownContent,
     CollapseContent
 )
-from collections import OrderedDict
+from great_expectations.exceptions import ClassInstantiationError
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +31,20 @@ class ValidationResultsPageRenderer(Renderer):
             column_section_renderer = {
                 "class_name": "ValidationResultsColumnSectionRenderer"
             }
+        module_name = 'great_expectations.render.renderer.column_section_renderer'
         self._column_section_renderer = instantiate_class_from_config(
             config=column_section_renderer,
             runtime_environment={},
             config_defaults={
-                "module_name": column_section_renderer.get(
-                    "module_name", "great_expectations.render.renderer.column_section_renderer")
+                "module_name": column_section_renderer.get("module_name", module_name)
             }
         )
+        if not self._column_section_renderer:
+            raise ClassInstantiationError(
+                module_name=module_name,
+                package_name=None,
+                class_name=column_section_renderer['class_name']
+            )
 
     def render(self, validation_results):
         run_id = validation_results.meta['run_id']
@@ -142,6 +149,9 @@ class ValidationResultsPageRenderer(Renderer):
     def _render_validation_header(cls, validation_results):
         success = validation_results.success
         expectation_suite_name = validation_results.meta['expectation_suite_name']
+        expectation_suite_path_components = ['..' for _ in range(len(expectation_suite_name.split('.')) + 2)] \
+            + ["expectations"] + expectation_suite_name.split(".")
+        expectation_suite_path = os.path.join(*expectation_suite_path_components) + ".html"
         if success:
             success = '<i class="fas fa-check-circle text-success" aria-hidden="true"></i> Succeeded'
         else:
@@ -175,6 +185,12 @@ class ValidationResultsPageRenderer(Renderer):
                             },
                             "status_title": {
                                 "classes": ["h6"]
+                            },
+                            "expectation_suite_name": {
+                                "tag": "a",
+                                "attributes": {
+                                    "href": expectation_suite_path
+                                }
                             }
                         },
                         "classes": ["mb-0", "mt-1"]
@@ -380,14 +396,20 @@ class ExpectationSuitePageRenderer(Renderer):
             column_section_renderer = {
                 "class_name": "ExpectationSuiteColumnSectionRenderer"
             }
+        module_name = 'great_expectations.render.renderer.column_section_renderer'
         self._column_section_renderer = instantiate_class_from_config(
             config=column_section_renderer,
             runtime_environment={},
             config_defaults={
-                "module_name": column_section_renderer.get(
-                    "module_name", "great_expectations.render.renderer.column_section_renderer")
+                "module_name": column_section_renderer.get("module_name", module_name)
             }
         )
+        if not self._column_section_renderer:
+            raise ClassInstantiationError(
+                module_name=column_section_renderer,
+                package_name=None,
+                class_name=column_section_renderer['class_name']
+            )
 
     def render(self, expectations):
         columns, ordered_columns = self._group_and_order_expectations_by_column(expectations)
@@ -601,22 +623,34 @@ class ProfilingResultsPageRenderer(Renderer):
             column_section_renderer = {
                 "class_name": "ProfilingResultsColumnSectionRenderer"
             }
+        module_name = 'great_expectations.render.renderer.other_section_renderer'
         self._overview_section_renderer = instantiate_class_from_config(
             config=overview_section_renderer,
             runtime_environment={},
             config_defaults={
-                "module_name": overview_section_renderer.get(
-                    "module_name", "great_expectations.render.renderer.other_section_renderer")
+                "module_name": overview_section_renderer.get("module_name", module_name)
             }
         )
+        if not self._overview_section_renderer:
+            raise ClassInstantiationError(
+                module_name=module_name,
+                package_name=None,
+                class_name=overview_section_renderer['class_name']
+            )
+        module_name = 'great_expectations.render.renderer.column_section_renderer'
         self._column_section_renderer = instantiate_class_from_config(
             config=column_section_renderer,
             runtime_environment={},
             config_defaults={
-                "module_name": column_section_renderer.get(
-                    "module_name", "great_expectations.render.renderer.column_section_renderer")
+                "module_name": column_section_renderer.get("module_name", module_name)
             }
         )
+        if not self._column_section_renderer:
+            raise ClassInstantiationError(
+                module_name=module_name,
+                package_name=None,
+                class_name=column_section_renderer['class_name']
+            )
 
     def render(self, validation_results):
         run_id = validation_results.meta['run_id']
@@ -630,7 +664,7 @@ class ProfilingResultsPageRenderer(Renderer):
                 batch_kwargs['datasource'] = expectation_suite_name.split('.')[0]
 
         # Group EVRs by column
-        #TODO: When we implement a ValidationResultSuite class, this method will move there.
+        # TODO: When we implement a ValidationResultSuite class, this method will move there.
         columns = self._group_evrs_by_column(validation_results)
 
         ordered_columns = Renderer._get_column_list_from_evrs(validation_results)

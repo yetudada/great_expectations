@@ -130,7 +130,6 @@ def test_expectation_suite_equivalence(baseline_suite, identical_suite, equivale
 
 def test_expectation_suite_dictionary_equivalence(baseline_suite):
     assert baseline_suite.isEquivalentTo({
-        "data_asset_name": {"datasource": "my_source", "generator": "my_generator", "generator_asset": "my_asset"},
         "expectation_suite_name": "warning",
         "expectations": [{
             "expectation_type": "expect_column_values_to_be_in_set",
@@ -158,7 +157,6 @@ def test_expectation_suite_dictionary_equivalence(baseline_suite):
     }) is True
 
     assert baseline_suite.isEquivalentTo({
-        "data_asset_name": {"datasource": "my_source", "generator": "my_generator", "generator_asset": "my_asset"},
         "expectation_suite_name": "warning",
         "expectations": [{
             "expectation_type": "expect_column_values_to_be_in_set",
@@ -203,3 +201,103 @@ def test_expectation_suite_deepcopy(baseline_suite):
     suite_deepcopy.expectations[0].meta["notes"] = "a different note"
     # deepcopy on deep attributes does not propagate
     assert baseline_suite.expectations[0].meta["notes"] == "This is an expectation."
+
+
+def test_add_citation(baseline_suite):
+    assert "citations" not in baseline_suite.meta or len(baseline_suite.meta["citations"]) == 0
+    baseline_suite.add_citation("hello!")
+    assert baseline_suite.meta["citations"][0].get("comment") == "hello!"
+
+
+def test_get_citations_with_no_citations(baseline_suite):
+    assert "citations" not in baseline_suite.meta
+    assert baseline_suite.get_citations() == []
+
+
+def test_get_citations_not_sorted(baseline_suite):
+    assert "citations" not in baseline_suite.meta
+    baseline_suite.add_citation("first", citation_date="2000-01-01")
+    baseline_suite.add_citation("third", citation_date="2000-01-03")
+    baseline_suite.add_citation("second", citation_date="2000-01-02")
+    assert baseline_suite.get_citations(sort=False) == [
+        {
+            "batch_kwargs": None,
+            "batch_markers": None,
+            "batch_parameters": None,
+            "citation_date": "2000-01-01",
+            "comment": "first",
+        },
+        {
+            "batch_kwargs": None,
+            "batch_markers": None,
+            "batch_parameters": None,
+            "citation_date": "2000-01-03",
+            "comment": "third",
+        },
+        {
+            "batch_kwargs": None,
+            "batch_markers": None,
+            "batch_parameters": None,
+            "citation_date": "2000-01-02",
+            "comment": "second",
+        },
+    ]
+
+
+def test_get_citations_sorted(baseline_suite):
+    assert "citations" not in baseline_suite.meta
+    baseline_suite.add_citation("first", citation_date="2000-01-01")
+    baseline_suite.add_citation("third", citation_date="2000-01-03")
+    baseline_suite.add_citation("second", citation_date="2000-01-02")
+    assert baseline_suite.get_citations(sort=True) == [
+        {
+            "batch_kwargs": None,
+            "batch_markers": None,
+            "batch_parameters": None,
+            "citation_date": "2000-01-01",
+            "comment": "first",
+        },
+        {
+            "batch_kwargs": None,
+            "batch_markers": None,
+            "batch_parameters": None,
+            "citation_date": "2000-01-02",
+            "comment": "second",
+        },
+        {
+            "batch_kwargs": None,
+            "batch_markers": None,
+            "batch_parameters": None,
+            "citation_date": "2000-01-03",
+            "comment": "third",
+        },
+    ]
+
+
+def test_get_citations_with_multiple_citations_containing_batch_kwargs(baseline_suite):
+    assert "citations" not in baseline_suite.meta
+    baseline_suite.add_citation(
+        "first", batch_kwargs={"path": "first"}, citation_date="2000-01-01"
+    )
+    baseline_suite.add_citation(
+        "second", batch_kwargs={"path": "second"}, citation_date="2001-01-01"
+    )
+    baseline_suite.add_citation("third", citation_date="2002-01-01")
+
+    obs = baseline_suite.get_citations(sort=True, require_batch_kwargs=True)
+    assert obs == [
+        {
+            "batch_kwargs": {"path": "first"},
+            "batch_markers": None,
+            "batch_parameters": None,
+            "citation_date": "2000-01-01",
+            "comment": "first",
+        },
+        {
+            "batch_kwargs": {"path": "second"},
+            "batch_markers": None,
+            "batch_parameters": None,
+            "citation_date": "2001-01-01",
+            "comment": "second",
+        },
+    ]

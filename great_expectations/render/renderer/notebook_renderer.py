@@ -21,14 +21,15 @@ class NotebookRenderer(Renderer):
         # TODO probably replace this with Suite logic at some point
         expectations_by_column = {"table_expectations": []}
         for exp in expectations:
-            if "_table_" in exp["expectation_type"]:
-                expectations_by_column["table_expectations"].append(exp)
-            else:
+            if "column" in exp["kwargs"]:
                 col = exp["kwargs"]["column"]
 
                 if col not in expectations_by_column.keys():
                     expectations_by_column[col] = []
                 expectations_by_column[col].append(exp)
+            else:
+                expectations_by_column["table_expectations"].append(exp)
+
         return expectations_by_column
 
     @classmethod
@@ -50,7 +51,7 @@ class NotebookRenderer(Renderer):
     def add_header(self, suite_name, batch_kwargs):
         self.add_markdown_cell(
             """# Edit Your Expectation Suite
-Use this notebook to recreate and modify your expectation suite for:
+Use this notebook to recreate and modify your expectation suite:
 
 **Expectation Suite Name**: `{}`
 
@@ -59,12 +60,8 @@ We'd love it if you **reach out to us on** the [**Great Expectations Slack Chann
             )
         )
 
-        # TODO such brittle hacks to fix paths
-        if "path" in batch_kwargs.keys():
-            base_dir = batch_kwargs["path"]
-            if not base_dir.startswith("/"):
-                batch_kwargs["path"] = os.path.join("../../", base_dir)
-
+        if not batch_kwargs:
+            batch_kwargs = dict()
         self.add_code_cell(
             """\
 from datetime import datetime
@@ -74,20 +71,27 @@ from great_expectations.data_context.types.resource_identifiers import Validatio
 
 context = ge.data_context.ExplorerDataContext()
 
-expectation_suite_name = "{}"  # Feel free to change the name of your suite here. Renaming this will not remove the other one.
+# Feel free to change the name of your suite here. Renaming this will not
+# remove the other one.
+expectation_suite_name = "{}"
+suite = context.get_expectation_suite(expectation_suite_name)
+suite.expectations = []
 
 batch_kwargs = {}
-batch = context.get_batch(batch_kwargs, expectation_suite_name)
+batch = context.get_batch(batch_kwargs, suite)
 batch.head()""".format(
                 suite_name, batch_kwargs
             ),
-            lint=True
+            lint=True,
         )
 
     def add_footer(self):
         self.add_markdown_cell(
             """\
-## Review Your Expectations
+## Save & Review Your Expectations
+
+Let's save the expectation suite as a JSON file in the `great_expectations/expectations` directory of your project.
+If you decide not to save some expectations that you created, use [remove_expectation method](https://docs.greatexpectations.io/en/latest/module_docs/data_asset_module.html?highlight=remove_expectation&utm_source=notebook&utm_medium=edit_expectations#great_expectations.data_asset.data_asset.DataAsset.remove_expectation).
 
 Let's now rebuild your Data Docs, which helps you communicate about your data with both machines and humans."""
         )
@@ -122,21 +126,19 @@ context.open_data_docs()"""
     def add_expectation_cells_from_suite(self, expectations):
         expectations_by_column = self._get_expectations_by_column(expectations)
         self.add_markdown_cell("### Table Expectation(s)")
-        if expectations_by_column["table_expectations"]:
-            for exp in expectations_by_column["table_expectations"]:
-                kwargs_string = self._build_kwargs_string(exp)
-                code = "batch.{}({})".format(exp["expectation_type"], kwargs_string)
-                self.add_code_cell(code, lint=True)
-        else:
-            self.add_markdown_cell(
-                "No table level expectations are in this suite. Feel free to "
-                "add some here. The all begin with `batch.expect_table_...`."
-            )
-
+        self._add_table_level_expectations(expectations_by_column)
         # Remove the table expectations since they are dealt with
         expectations_by_column.pop("table_expectations")
-
         self.add_markdown_cell("### Column Expectation(s)")
+        self._add_column_level_expectations(expectations_by_column)
+
+    def _add_column_level_expectations(self, expectations_by_column):
+        if not expectations_by_column:
+            self.add_markdown_cell(
+                "No column level expectations are in this suite. Feel free to "
+                "add some here. They all begin with `batch.expect_column_...`."
+            )
+            return
 
         for column, expectations in expectations_by_column.items():
             self.add_markdown_cell("#### `{}`".format(column))
@@ -148,6 +150,19 @@ context.open_data_docs()"""
                     exp["expectation_type"], kwargs_string, meta_args
                 )
                 self.add_code_cell(code, lint=True)
+
+    def _add_table_level_expectations(self, expectations_by_column):
+        if not expectations_by_column["table_expectations"]:
+            self.add_markdown_cell(
+                "No table level expectations are in this suite. Feel free to "
+                "add some here. They all begin with `batch.expect_table_...`."
+            )
+            return
+
+        for exp in expectations_by_column["table_expectations"]:
+            kwargs_string = self._build_kwargs_string(exp)
+            code = "batch.{}({})".format(exp["expectation_type"], kwargs_string)
+            self.add_code_cell(code, lint=True)
 
     @staticmethod
     def _build_meta_arguments(meta):
@@ -168,20 +183,18 @@ context.open_data_docs()"""
         with open(notebook_file_path, "w") as f:
             nbformat.write(notebook, f)
 
-    def render(self, suite, batch_kwargs):
+    def render(self, suite, batch_kwargs=None):
         """
         Render a notebook dict from an expectation suite.
         """
         if not isinstance(suite, ExpectationSuite):
             raise RuntimeWarning("render must be given an ExpectationSuite.")
-        # TODO check for proper BatchKwargs type
-        if not isinstance(batch_kwargs, dict):
-            raise RuntimeWarning("render must be given a dictionary of batch_kwargs.")
 
         self.notebook = nbformat.v4.new_notebook()
 
         suite_name = suite.expectation_suite_name
 
+        batch_kwargs = self._get_batch_kwargs(suite, batch_kwargs)
         self.add_header(suite_name, batch_kwargs)
         self.add_authoring_intro()
         # self.add_expectation_cells_from_suite(suite.expectations)
@@ -189,11 +202,12 @@ context.open_data_docs()"""
 
         return self.notebook
 
-    def render_to_disk(
-        self, suite, batch_kwargs, notebook_file_path
-    ):
+    def render_to_disk(self, suite, notebook_file_path, batch_kwargs=None):
         """
         Render a notebook to disk from an expectation suite.
+
+        If batch_kwargs are passed they will override any found in suite
+        citations.
 
         :param data_asset_name:
         :param batch_kwargs:
@@ -212,7 +226,28 @@ Add expectations by calling specific expectation methods on the `batch` object. 
 
 You can see all the available expectations in the **[expectation glossary](https://docs.greatexpectations.io/en/latest/expectation_glossary.html?utm_source=notebook&utm_medium=create_expectations)**."""
         )
-        self.add_code_cell(
-            """\
-batch.edit_expectation_suite()"""
-        )
+
+    def _get_batch_kwargs(self, suite, batch_kwargs):
+        if isinstance(batch_kwargs, dict):
+            return self._fix_path_in_batch_kwargs(batch_kwargs)
+
+        citations = suite.meta.get("citations")
+        if not citations:
+            return self._fix_path_in_batch_kwargs(batch_kwargs)
+
+        citations = suite.get_citations(sort=True, require_batch_kwargs=True)
+        if not citations:
+            return None
+
+        citation = citations[-1]
+        batch_kwargs = citation.get("batch_kwargs")
+        return self._fix_path_in_batch_kwargs(batch_kwargs)
+
+    @staticmethod
+    def _fix_path_in_batch_kwargs(batch_kwargs):
+        if batch_kwargs and "path" in batch_kwargs.keys():
+            base_dir = batch_kwargs["path"]
+            if not os.path.isabs(base_dir):
+                batch_kwargs["path"] = os.path.join("..", "..", base_dir)
+
+        return batch_kwargs
