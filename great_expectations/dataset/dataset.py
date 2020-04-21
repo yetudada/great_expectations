@@ -20,6 +20,12 @@ from great_expectations.dataset.util import (
 )
 
 
+class DatasetBackendTypes(Enum):
+    PandasDataFrame = "pandas"
+    SparkDataFrame = "spark"
+    SqlAlchemy = "sqlalchemy"
+
+
 class MetaDataset(DataAsset):
     """
     Holds expectation decorators.

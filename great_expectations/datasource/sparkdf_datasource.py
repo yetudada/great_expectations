@@ -2,6 +2,9 @@ import datetime
 import logging
 import uuid
 
+from great_expectations.core.batch import SparkDFBatch
+from great_expectations.dataset import SparkDFDataset
+from great_expectations.datasource.datasource import Datasource
 from great_expectations.datasource.types import BatchMarkers
 from great_expectations.types import ClassConfig
 
@@ -197,7 +200,7 @@ class SparkDFDatasource(Datasource):
         if "limit" in batch_kwargs:
             df = df.limit(batch_kwargs["limit"])
 
-        return Batch(
+        return SparkDFBatch(
             datasource_name=self.name,
             batch_kwargs=batch_kwargs,
             data=df,

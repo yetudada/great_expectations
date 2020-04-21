@@ -26,7 +26,10 @@ from great_expectations.render.types import (
     TextContent,
     ValueListContent,
 )
-from great_expectations.util import load_class, verify_dynamic_loading_support
+from great_expectations.util import (
+    load_class,
+    verify_dynamic_loading_support,
+)
 
 logger = logging.getLogger(__name__)
 

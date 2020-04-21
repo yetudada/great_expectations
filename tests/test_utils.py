@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 from dateutil.parser import parse
 
-from great_expectations.core import (
+from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResultSchema,
     ExpectationValidationResultSchema,
 )

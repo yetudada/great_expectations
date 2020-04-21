@@ -233,7 +233,7 @@ class SqlAlchemyDatasource(Datasource):
                 "Invalid batch_kwargs: exactly one of 'table' or 'query' must be specified"
             )
 
-        return Batch(
+        return SqlAlchemyBatch(
             datasource_name=self.name,
             batch_kwargs=batch_kwargs,
             data=batch_reference,

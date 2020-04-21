@@ -10,12 +10,9 @@ import pytest
 from freezegun import freeze_time
 
 import great_expectations as ge
-from great_expectations.core import (
-    ExpectationConfiguration,
-    ExpectationSuite,
-    ExpectationValidationResult,
-    expectationSuiteSchema,
-)
+from great_expectations.core.expectation_configuration import ExpectationConfiguration
+from great_expectations.core.expectation_suite import ExpectationSuite, expectationSuiteSchema
+from great_expectations.core.expectation_validation_result import ExpectationValidationResult
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
 )

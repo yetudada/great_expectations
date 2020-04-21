@@ -404,116 +404,116 @@ def read_pickle(
             profiler=profiler,
         )
 
-
-def validate(
-    data_asset,
-    expectation_suite=None,
-    data_asset_name=None,
-    expectation_suite_name=None,
-    data_context=None,
-    data_asset_class_name=None,
-    data_asset_module_name="great_expectations.dataset",
-    data_asset_class=None,
-    *args,
-    **kwargs,
-):
-    """Validate the provided data asset. Validate can accept an optional data_asset_name to apply, data_context to use
-    to fetch an expectation_suite if one is not provided, and data_asset_class_name/data_asset_module_name or
-    data_asset_class to use to provide custom expectations.
-
-    Args:
-        data_asset: the asset to validate
-        expectation_suite: the suite to use, or None to fetch one using a DataContext
-        data_asset_name: the name of the data asset to use
-        expectation_suite_name: the name of the expectation_suite to use
-        data_context: data context to use to fetch an an expectation suite, or the path from which to obtain one
-        data_asset_class_name: the name of a class to dynamically load a DataAsset class
-        data_asset_module_name: the name of the module to dynamically load a DataAsset class
-        data_asset_class: a class to use. overrides data_asset_class_name/ data_asset_module_name if provided
-        *args:
-        **kwargs:
-
-    Returns:
-
-    """
-    # Get an expectation suite if not provided
-    if expectation_suite is None and data_context is None:
-        raise ValueError(
-            "Either an expectation suite or a DataContext is required for validation."
-        )
-
-    if expectation_suite is None:
-        logger.info("Using expectation suite from DataContext.")
-        # Allow data_context to be a string, and try loading it from path in that case
-        if isinstance(data_context, str):
-            from great_expectations.data_context import DataContext
-
-            data_context = DataContext(data_context)
-        expectation_suite = data_context.get_expectation_suite(
-            expectation_suite_name=expectation_suite_name
-        )
-    else:
-        if isinstance(expectation_suite, dict):
-            expectation_suite = expectationSuiteSchema.load(expectation_suite)
-        if data_asset_name is not None:
-            raise ValueError(
-                "When providing an expectation suite, data_asset_name cannot also be provided."
-            )
-        if expectation_suite_name is not None:
-            raise ValueError(
-                "When providing an expectation suite, expectation_suite_name cannot also be provided."
-            )
-        logger.info(
-            "Validating data_asset_name %s with expectation_suite_name %s"
-            % (data_asset_name, expectation_suite.expectation_suite_name)
-        )
-
-    # If the object is already a DataAsset type, then this is purely a convenience method
-    # and no conversion is needed; try to run validate on the given object
-    if data_asset_class_name is None and data_asset_class is None:
-        return data_asset.validate(
-            expectation_suite=expectation_suite,
-            data_context=data_context,
-            *args,
-            **kwargs,
-        )
-
-    # Otherwise, try to convert and validate the dataset
-    if data_asset_class is None:
-        verify_dynamic_loading_support(module_name=data_asset_module_name)
-        data_asset_class = load_class(data_asset_class_name, data_asset_module_name)
-
-    import pandas as pd
-    from great_expectations.dataset import Dataset, PandasDataset
-
-    if data_asset_class is None:
-        # Guess the GE data_asset_type based on the type of the data_asset
-        if isinstance(data_asset, pd.DataFrame):
-            data_asset_class = PandasDataset
-        # Add other data_asset_type conditions here as needed
-
-    # Otherwise, we will convert for the user to a subclass of the
-    # existing class to enable new expectations, but only for datasets
-    if not isinstance(data_asset, (Dataset, pd.DataFrame)):
-        raise ValueError(
-            "The validate util method only supports dataset validations, including custom subclasses. For other data "
-            "asset types, use the object's own validate method."
-        )
-
-    if not issubclass(type(data_asset), data_asset_class):
-        if isinstance(data_asset, pd.DataFrame) and issubclass(
-            data_asset_class, PandasDataset
-        ):
-            pass  # This is a special type of allowed coercion
-        else:
-            raise ValueError(
-                "The validate util method only supports validation for subtypes of the provided data_asset_type."
-            )
-
-    data_asset_ = _convert_to_dataset_class(
-        data_asset, dataset_class=data_asset_class, expectation_suite=expectation_suite
-    )
-    return data_asset_.validate(*args, data_context=data_context, **kwargs)
+#
+# def validate(
+#     data_asset,
+#     expectation_suite=None,
+#     data_asset_name=None,
+#     expectation_suite_name=None,
+#     data_context=None,
+#     data_asset_class_name=None,
+#     data_asset_module_name="great_expectations.dataset",
+#     data_asset_class=None,
+#     *args,
+#     **kwargs,
+# ):
+#     """Validate the provided data asset. Validate can accept an optional data_asset_name to apply, data_context to use
+#     to fetch an expectation_suite if one is not provided, and data_asset_class_name/data_asset_module_name or
+#     data_asset_class to use to provide custom expectations.
+#
+#     Args:
+#         data_asset: the asset to validate
+#         expectation_suite: the suite to use, or None to fetch one using a DataContext
+#         data_asset_name: the name of the data asset to use
+#         expectation_suite_name: the name of the expectation_suite to use
+#         data_context: data context to use to fetch an an expectation suite, or the path from which to obtain one
+#         data_asset_class_name: the name of a class to dynamically load a DataAsset class
+#         data_asset_module_name: the name of the module to dynamically load a DataAsset class
+#         data_asset_class: a class to use. overrides data_asset_class_name/ data_asset_module_name if provided
+#         *args:
+#         **kwargs:
+#
+#     Returns:
+#
+#     """
+#     # Get an expectation suite if not provided
+#     if expectation_suite is None and data_context is None:
+#         raise ValueError(
+#             "Either an expectation suite or a DataContext is required for validation."
+#         )
+#
+#     if expectation_suite is None:
+#         logger.info("Using expectation suite from DataContext.")
+#         # Allow data_context to be a string, and try loading it from path in that case
+#         if isinstance(data_context, str):
+#             from great_expectations.data_context import DataContext
+#
+#             data_context = DataContext(data_context)
+#         expectation_suite = data_context.get_expectation_suite(
+#             expectation_suite_name=expectation_suite_name
+#         )
+#     else:
+#         if isinstance(expectation_suite, dict):
+#             expectation_suite = expectationSuiteSchema.load(expectation_suite)
+#         if data_asset_name is not None:
+#             raise ValueError(
+#                 "When providing an expectation suite, data_asset_name cannot also be provided."
+#             )
+#         if expectation_suite_name is not None:
+#             raise ValueError(
+#                 "When providing an expectation suite, expectation_suite_name cannot also be provided."
+#             )
+#         logger.info(
+#             "Validating data_asset_name %s with expectation_suite_name %s"
+#             % (data_asset_name, expectation_suite.expectation_suite_name)
+#         )
+#
+#     # If the object is already a DataAsset type, then this is purely a convenience method
+#     # and no conversion is needed; try to run validate on the given object
+#     if data_asset_class_name is None and data_asset_class is None:
+#         return data_asset.validate(
+#             expectation_suite=expectation_suite,
+#             data_context=data_context,
+#             *args,
+#             **kwargs,
+#         )
+#
+#     # Otherwise, try to convert and validate the dataset
+#     if data_asset_class is None:
+#         verify_dynamic_loading_support(module_name=data_asset_module_name)
+#         data_asset_class = load_class(data_asset_class_name, data_asset_module_name)
+#
+#     import pandas as pd
+#     from great_expectations.dataset import Dataset, PandasDataset
+#
+#     if data_asset_class is None:
+#         # Guess the GE data_asset_type based on the type of the data_asset
+#         if isinstance(data_asset, pd.DataFrame):
+#             data_asset_class = PandasDataset
+#         # Add other data_asset_type conditions here as needed
+#
+#     # Otherwise, we will convert for the user to a subclass of the
+#     # existing class to enable new expectations, but only for datasets
+#     if not isinstance(data_asset, (Dataset, pd.DataFrame)):
+#         raise ValueError(
+#             "The validate util method only supports dataset validations, including custom subclasses. For other data "
+#             "asset types, use the object's own validate method."
+#         )
+#
+#     if not issubclass(type(data_asset), data_asset_class):
+#         if isinstance(data_asset, pd.DataFrame) and issubclass(
+#             data_asset_class, PandasDataset
+#         ):
+#             pass  # This is a special type of allowed coercion
+#         else:
+#             raise ValueError(
+#                 "The validate util method only supports validation for subtypes of the provided data_asset_type."
+#             )
+#
+#     data_asset_ = _convert_to_dataset_class(
+#         data_asset, dataset_class=data_asset_class, expectation_suite=expectation_suite
+#     )
+#     return data_asset_.validate(*args, data_context=data_context, **kwargs)
 
 
 # https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python

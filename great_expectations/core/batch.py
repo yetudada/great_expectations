@@ -1,3 +1,4 @@
+from great_expectations.dataset.dataset import DatasetBackendTypes
 from great_expectations.types import DictDot
 
 
@@ -41,3 +42,21 @@ class Batch(DictDot):
     @property
     def data_context(self):
         return self._data_context
+
+    def get_expectation_engine(self):
+        raise NotImplementedError
+
+
+class SparkDFBatch(Batch):
+    def get_expectation_engine(self):
+        return DatasetBackendTypes.SparkDataFrame
+
+
+class SqlAlchemyBatch(Batch):
+    def get_expectation_engine(self):
+        return DatasetBackendTypes.SqlAlchemy
+
+
+class PandasDFBatch(Batch):
+    def get_expectation_engine(self):
+        return DatasetBackendTypes.PandasDataFrame

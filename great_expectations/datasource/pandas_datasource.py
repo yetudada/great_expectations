@@ -238,7 +238,7 @@ class PandasDatasource(Datasource):
         if df.memory_usage().sum() < HASH_THRESHOLD:
             batch_markers["pandas_data_fingerprint"] = hash_pandas_dataframe(df)
 
-        return Batch(
+        return PandasDFBatch(
             datasource_name=self.name,
             batch_kwargs=batch_kwargs,
             data=df,
