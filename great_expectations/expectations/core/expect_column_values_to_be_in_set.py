@@ -29,6 +29,27 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
             raise InvalidExpectationConfigurationError(str(e))
         return True
 
+    @builds_series
+
+    as a
+    property
+
+    Metric
+    production
+    can
+    be
+    a
+    part
+    of
+    an
+    expectation
+
+    Metric is a
+
+    class !
+
+    # FIXME ADD
+    @validates(validation_engine="pandas")
     def _validate_pandas_series(self, series: pd.Series, value_set: Union[list, set], **kwargs):
         if value_set is None:
             # Vacuously true

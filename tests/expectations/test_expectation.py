@@ -8,6 +8,7 @@ from great_expectations.validator.validator import DatasetValidator
 
 def test_configuration_validation():
     df = pd.DataFrame({"PClass": [1, 2, 3, 4]})
+    # maybe THIS is an "Expectation" and other is an "ExpectationImplementation"
     expectation_configuration = ExpectationConfiguration(
         expectation_type="expect_column_values_to_be_in_set",
         kwargs={
@@ -23,6 +24,10 @@ def test_dataset_validation():
     df = pd.DataFrame({"PClass": [1, 2, 3, 4]})
     datasource = PandasDatasource()
     batch = datasource.get_batch(batch_kwargs={"dataset": df})
+    # Stateless Validator -> Validator
+    #    - Does not have a suite property that it maintains
+    # Active Validator -> NEEDS A NAME (session validator)
+    #    - Does have a suite property that it maintains
     validator = DatasetValidator(batch=batch)
     res = validator.expect_column_values_to_be_in_set("PClass", [1, 2])
     assert res == ExpectationValidationResult(success=False)
