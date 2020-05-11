@@ -24,9 +24,9 @@ def test_dataset_validation():
     df = pd.DataFrame({"PClass": [1, 2, 3, 4]})
     datasource = PandasDatasource()
     batch = datasource.get_batch(batch_kwargs={"dataset": df})
-    # Stateless Validator -> Validator
+    # Validator
     #    - Does not have a suite property that it maintains
-    # Active Validator -> NEEDS A NAME (session validator)
+    # InteractiveValidator
     #    - Does have a suite property that it maintains
     validator = DatasetValidator(batch=batch)
     res = validator.expect_column_values_to_be_in_set("PClass", [1, 2])

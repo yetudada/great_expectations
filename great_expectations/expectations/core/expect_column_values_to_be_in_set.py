@@ -8,6 +8,11 @@ from ...core.expectation_configuration import ExpectationConfiguration
 from ...dataset.dataset import DatasetBackendTypes
 
 
+# equivalence kwargs -> "column"
+# validation kwargs += "value_set", "mostly"
+# runtime kwargs += "result_format"
+
+
 class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
     validation_kwargs = ["column", "value_set", "mostly"]
 
@@ -29,24 +34,8 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
             raise InvalidExpectationConfigurationError(str(e))
         return True
 
-    @builds_series
-
-    as a
-    property
-
-    Metric
-    production
-    can
-    be
-    a
-    part
-    of
-    an
-    expectation
-
-    Metric is a
-
-    class !
+    # @builds_series as a property
+    # Metric    production     can    be    a    part   of    an    expectation    Metric is a    class !
 
     # FIXME ADD
     @validates(validation_engine="pandas")
@@ -61,3 +50,15 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
             parsed_value_set = value_set
 
         return series.isin(parsed_value_set)
+
+    @validates(validation_engine="sqlalchemy")
+    def _dasf:
+        return condition
+
+    @validates(validation_engine="sqlalchemy")
+    def _dasf:
+        return condition
+
+    @renders(StringTemplate, modes=())
+    def lkjdsf(self, mode={prescriptive}, {descriptive}, {valiation}):
+        return "I'm a thing"
