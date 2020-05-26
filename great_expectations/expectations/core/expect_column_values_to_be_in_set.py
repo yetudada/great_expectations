@@ -38,7 +38,7 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
     # Metric    production     can    be    a    part   of    an    expectation    Metric is a    class !
 
     # FIXME ADD
-    @validates(validation_engine="pandas")
+    # @validates(validation_engine="pandas")
     def _validate_pandas_series(self, series: pd.Series, value_set: Union[list, set], **kwargs):
         if value_set is None:
             # Vacuously true
@@ -51,14 +51,14 @@ class ExpectColumnValuesToBeInSet(ColumnMapDatasetExpectation):
 
         return series.isin(parsed_value_set)
 
-    @validates(validation_engine="sqlalchemy")
-    def _dasf:
-        return condition
-
-    @validates(validation_engine="sqlalchemy")
-    def _dasf:
-        return condition
-
-    @renders(StringTemplate, modes=())
-    def lkjdsf(self, mode={prescriptive}, {descriptive}, {valiation}):
-        return "I'm a thing"
+    # @validates(validation_engine="sqlalchemy")
+    # def _dasf:
+    #     return condition
+    #
+    # @validates(validation_engine="sqlalchemy")
+    # def _dasf:
+    #     return condition
+    #
+    # @renders(StringTemplate, modes=())
+    # def lkjdsf(self, mode={prescriptive}, {descriptive}, {valiation}):
+    #     return "I'm a thing"

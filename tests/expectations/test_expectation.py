@@ -30,4 +30,4 @@ def test_dataset_validation():
     #    - Does have a suite property that it maintains
     validator = DatasetValidator(batch=batch)
     res = validator.expect_column_values_to_be_in_set("PClass", [1, 2])
-    assert res == ExpectationValidationResult(success=False)
+    assert res.success is False
