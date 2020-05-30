@@ -1,23 +1,52 @@
-"""This is currently helping bridge APIs"""
+import traceback
+from abc import ABCMeta
+from functools import partial
+
+# Ensure all base expectations are already loaded
+from great_expectations.core.expectation_configuration import (
+    RuntimeValidationConfiguration,
+)
+from great_expectations.core.expectation_suite import ExpectationSuite
+from great_expectations.core.expectation_validation_result import (
+    ExpectationValidationResult,
+)
 from great_expectations.dataset import PandasDataset, SparkDFDataset, SqlAlchemyDataset
 from great_expectations.dataset.sqlalchemy_dataset import SqlAlchemyBatchReference
-from great_expectations.expectations.expectation import Expectation, DatasetExpectation
-from great_expectations.expectations.registry import list_registered_expectation_implementations, get_expectation_impl
+from great_expectations.expectations.expectation import DatasetExpectation, Expectation
+from great_expectations.expectations.registry import (
+    get_expectation_impl,
+    list_registered_expectation_implementations,
+)
 from great_expectations.types import ClassConfig
 from great_expectations.util import load_class, verify_dynamic_loading_support
 
 
-class Validator(object):
-    def __init__(self, batch, expectation_suite, expectation_engine=None, **kwargs):
+class MetaValidator(ABCMeta):
+    def __new__(cls, clsname, bases, attrs):
+        newclass = super(MetaValidator, cls).__new__(cls, clsname, bases, attrs)
+        return newclass
+
+
+class Validator(metaclass=MetaValidator):
+    expectation_root = Expectation
+
+
+class DatasetValidator(Validator):
+    expectation_root = DatasetExpectation
+
+    def __init__(
+        self, batch, expectation_suite=None, expectation_engine=None, **kwargs
+    ):
+        self._expectations = list_registered_expectation_implementations(
+            getattr(self, "expectation_root", Expectation)
+        )
         self.batch = batch
         if expectation_suite is None:
             expectation_suite = ExpectationSuite(expectation_suite_name="foo")
         self.expectation_suite = expectation_suite
         for expectation in self._expectations:
             setattr(self, expectation, partial(self._process_expectation, expectation))
-        self._config = {
-            "interactive_evaluation": True
-        }
+        self._config = {"interactive_evaluation": True}
         self._active_validation = False
         self.runtime_configuration = RuntimeValidationConfiguration()
 
@@ -26,7 +55,7 @@ class Validator(object):
 
         if isinstance(expectation_engine, ClassConfig):
             module_name = expectation_engine.module_name or "great_expectations.dataset"
-            verify_dynamic_loading_support(module_name=module_name)
+            verify_dynamic_loading_support(module_name=module_name, package_name=None)
             expectation_engine = load_class(
                 class_name=expectation_engine.class_name, module_name=module_name
             )
@@ -64,7 +93,9 @@ class Validator(object):
     def _process_expectation(self, expectation_name, *args, **kwargs):
         expectation_impl = get_expectation_impl(expectation_name)
         configuration = expectation_impl.build_configuration(*args, **kwargs)
-        runtime_configuration = configuration.build_runtime_configuration(self.runtime_configuration)
+        runtime_configuration = configuration.build_runtime_configuration(
+            self.runtime_configuration
+        )
         raised_exception = False
         exception_traceback = None
         exception_message = None
@@ -107,7 +138,7 @@ class Validator(object):
             return_obj.exception_info = {
                 "raised_exception": raised_exception,
                 "exception_message": exception_message,
-                "exception_traceback": exception_traceback
+                "exception_traceback": exception_traceback,
             }
 
         # Add meta to return object
@@ -119,7 +150,6 @@ class Validator(object):
 
         return return_obj
 
-
     def get_dataset(self):
         if issubclass(self.expectation_engine, PandasDataset):
             import pandas as pd
@@ -128,7 +158,6 @@ class Validator(object):
                 raise ValueError(
                     "PandasDataset expectation_engine requires a Pandas Dataframe for its batch"
                 )
-
             return self.expectation_engine(
                 self.batch.data,
                 expectation_suite=self.expectation_suite,
@@ -145,7 +174,6 @@ class Validator(object):
                 raise ValueError(
                     "SqlAlchemyDataset expectation_engine requires a SqlAlchemyBatchReference for its batch"
                 )
-
             init_kwargs = self.batch.data.get_init_kwargs()
             init_kwargs.update(self.init_kwargs)
             return self.expectation_engine(
@@ -165,7 +193,6 @@ class Validator(object):
                 raise ValueError(
                     "SparkDFDataset expectation_engine requires a spark DataFrame for its batch"
                 )
-
             return self.expectation_engine(
                 spark_df=self.batch.data,
                 expectation_suite=self.expectation_suite,

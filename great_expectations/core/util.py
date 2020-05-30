@@ -1,9 +1,18 @@
+import logging
+from collections import namedtuple
 from collections.abc import Mapping
 
-from great_expectations.exceptions import InvalidExpectationConfigurationError, ParserError
+from IPython import get_ipython
 
-EvaluationParameterIdentifier = namedtuple("EvaluationParameterIdentifier", ["expectation_suite_name", "metric_name",
-                                                                             "metric_kwargs_id"])
+from great_expectations.exceptions import (
+    InvalidExpectationConfigurationError,
+    ParserError,
+)
+
+EvaluationParameterIdentifier = namedtuple(
+    "EvaluationParameterIdentifier",
+    ["expectation_suite_name", "metric_name", "metric_kwargs_id"],
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,19 +31,18 @@ def nested_update(d, u):
     return d
 
 
-
 # function to determine if code is being run from a Jupyter notebook
 def in_jupyter_notebook():
     try:
         shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
+        if shell == "ZMQInteractiveShell":
+            return True  # Jupyter notebook or qtconsole
+        elif shell == "TerminalInteractiveShell":
             return False  # Terminal running IPython
         else:
             return False  # Other type (?)
     except NameError:
-        return False      # Probably standard Python interpreter
+        return False  # Probably standard Python interpreter
 
 
 def get_metric_kwargs_id(metric_name, metric_kwargs):
@@ -63,9 +71,12 @@ def parse_evaluation_parameter_urn(urn):
         elif len(split) == 5:
             return EvaluationParameterIdentifier(split[3], split[4], None)
         else:
-            raise ParserError("Unable to parse URN: must have 5 or 6 components to be a valid GE URN")
+            raise ParserError(
+                "Unable to parse URN: must have 5 or 6 components to be a valid GE URN"
+            )
 
     raise ParserError("Unrecognized evaluation parameter urn {}".format(urn))
+
 
 def convert_to_json_serializable(data):
     """
@@ -148,23 +159,30 @@ def convert_to_json_serializable(data):
         # keys must be strings. So, we use a very ugly serialization strategy
         index_name = data.index.name or "index"
         value_name = data.name or "value"
-        return [{
-            index_name: convert_to_json_serializable(idx),
-            value_name: convert_to_json_serializable(val)
-        } for idx, val in data.iteritems()]
+        return [
+            {
+                index_name: convert_to_json_serializable(idx),
+                value_name: convert_to_json_serializable(val),
+            }
+            for idx, val in data.iteritems()
+        ]
 
     elif isinstance(data, pd.DataFrame):
-        return convert_to_json_serializable(data.to_dict(orient='records'))
+        return convert_to_json_serializable(data.to_dict(orient="records"))
 
     elif isinstance(data, decimal.Decimal):
         if not (-1e-55 < decimal.Decimal.from_float(float(data)) - data < 1e-55):
-            logger.warning("Using lossy conversion for decimal %s to float object to support serialization." % str(
-                data))
+            logger.warning(
+                "Using lossy conversion for decimal %s to float object to support serialization."
+                % str(data)
+            )
         return float(data)
 
     else:
-        raise TypeError('%s is of type %s which cannot be serialized.' % (
-            str(data), type(data).__name__))
+        raise TypeError(
+            "%s is of type %s which cannot be serialized."
+            % (str(data), type(data).__name__)
+        )
 
 
 def ensure_json_serializable(data):
@@ -246,15 +264,22 @@ def ensure_json_serializable(data):
         # keys must be strings. So, we use a very ugly serialization strategy
         index_name = data.index.name or "index"
         value_name = data.name or "value"
-        _ = [{index_name: ensure_json_serializable(idx), value_name: ensure_json_serializable(val)}
-             for idx, val in data.iteritems()]
+        _ = [
+            {
+                index_name: ensure_json_serializable(idx),
+                value_name: ensure_json_serializable(val),
+            }
+            for idx, val in data.iteritems()
+        ]
         return
     elif isinstance(data, pd.DataFrame):
-        return ensure_json_serializable(data.to_dict(orient='records'))
+        return ensure_json_serializable(data.to_dict(orient="records"))
 
     elif isinstance(data, decimal.Decimal):
         return
 
     else:
-        raise InvalidExpectationConfigurationError('%s is of type %s which cannot be serialized to json' % (
-            str(data), type(data).__name__))
+        raise InvalidExpectationConfigurationError(
+            "%s is of type %s which cannot be serialized to json"
+            % (str(data), type(data).__name__)
+        )

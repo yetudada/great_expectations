@@ -1,6 +1,5 @@
 import pytest
-
-from great_expectations.core import ExpectationKwargs
+from great_expectations.core.expectation_configuration import ExpectationKwargs
 
 
 @pytest.fixture

@@ -1,10 +1,11 @@
 import pytest
-
 from great_expectations import __version__ as ge_version
-from great_expectations.core import (
+from great_expectations.core.expectation_configuration import (
     ExpectationConfiguration,
     ExpectationKwargs,
-    ExpectationSuite,
+)
+from great_expectations.core.expectation_validation_result import (
+    ExpectationValidationResult,
 )
 from great_expectations.data_asset import DataAsset, FileDataAsset
 from great_expectations.dataset import Dataset, PandasDataset

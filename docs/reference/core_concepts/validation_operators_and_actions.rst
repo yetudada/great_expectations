@@ -52,6 +52,8 @@ After completing all the validations, it sends a Slack notification with the suc
 Read more about WarningAndFailureExpectationSuitesValidationOperator here: :ref:`warning_and_failure_expectation_suites_validation_operator`
 
 
+.. _validation_actions:
+
 *****************
 ValidationActions
 *****************

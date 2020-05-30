@@ -7,9 +7,9 @@ from great_expectations.core import (
     ExpectationSuiteValidationResult,
     RunIdentifier,
     RunIdentifierSchema,
-    convert_to_json_serializable,
 )
 from great_expectations.core.id_dict import BatchKwargs
+from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context.types.resource_identifiers import (
     ValidationResultIdentifier,
 )

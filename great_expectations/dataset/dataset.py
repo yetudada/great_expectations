@@ -1,5 +1,6 @@
 import inspect
 from datetime import datetime
+from enum import Enum
 from functools import lru_cache, wraps
 from itertools import zip_longest
 from numbers import Number

@@ -1,8 +1,9 @@
 import pytest
-
-from great_expectations.core import (
+from great_expectations.core.expectation_configuration import (
     ExpectationConfiguration,
     ExpectationKwargs,
+)
+from great_expectations.core.expectation_validation_result import (
     ExpectationValidationResult,
 )
 from great_expectations.data_asset import DataAsset
