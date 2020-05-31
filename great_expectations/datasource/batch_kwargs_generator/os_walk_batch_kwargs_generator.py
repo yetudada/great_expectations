@@ -18,6 +18,66 @@ import re
 from collections import defaultdict
 
 class OsWalkBatchKwargsGenerator(BatchKwargsGenerator):
+    """OsWalkBatchKwargsGenerator maps the files in a (potentially nested) directory to produce semantically meaningful batches.
+
+    Example:
+
+        Given this directory structure:
+
+            some_dir
+            ├── 100
+            │   ├── A.csv
+            │   ├── B.txt
+            │   └── extra.png
+            ├── 101
+            │   ├── A.csv
+            │   ├── B.txt
+            │   └── extra.png
+            ├── 102
+            │   ├── A.csv
+            │   ├── bonus.pdf
+            │   └── extra.png
+            └── manifest.txt
+
+        And this config:
+
+            base_directory: some_dir
+            partition_keys:
+                - partition_key
+
+            data_assets:
+                A
+                    regex: (\d+)/A.csv
+                    reader_method: read_csv
+                    reader_options:
+                        skiprows: 2
+
+                B
+                    regex: (\d+)/B.csv
+                    reader_method: read_table
+
+            ignored_regexes:
+                - manifest.txt
+                - *.pdf
+                - *.png
+
+        OsWalkBatchKwargsGenerator indexes the following data_asset_names and batch_partition_ids:
+
+            A : [100, 101, 102]
+            B : [100, 101]
+
+    DONE:
+    * Can a data_asset have more than one regex? (Yes. Think of the case where you want to slice tables by day, week, and month)
+
+    TODO:
+    * Figure out where to put reader_method and options. Is there a default option? How does this interact with the Datasource?
+    * Figure out how external directives (like downsampling) get passed through.
+    * Figure out how to handle the case where multiple data_assets share and don't share the same partition_ids.
+    * Figure out how to handle the case of grouping multiple files into a single batch.
+    * Figure out which operations are fast and slow, and where caching will be most valuable.
+    * Review external-facing verbs, to make sure they're really the ones we want.
+    """
+
     def __init__(self,
         base_directory,
         data_asset_name_regexes:dict={},
