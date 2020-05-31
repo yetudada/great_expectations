@@ -42,8 +42,15 @@ class OsWalkBatchKwargsGenerator(BatchKwargsGenerator):
         And this config:
 
             base_directory: some_dir
-            partition_keys:
+            default_partition_keys:
                 - partition_key
+
+            partition_key_groups:
+                my_group_name # e.g. "weekly_events", "batches_from_vendor_X"
+                    partition_keys:
+                        -   key_name : some_other_partition_key
+                            key_parser_method : _default_key_parser
+
 
             data_assets:
                 A
@@ -51,10 +58,13 @@ class OsWalkBatchKwargsGenerator(BatchKwargsGenerator):
                     reader_method: read_csv
                     reader_options:
                         skiprows: 2
-
+                    partition_keys:
+                        -   key_name : some_other_partition_key
+                            key_parser_method : _default_key_parser
                 B
                     regex: (\d+)/B.csv
                     reader_method: read_table
+                    partition_key_group: my_group_name
 
             ignored_regexes:
                 - manifest.txt
@@ -70,15 +80,31 @@ class OsWalkBatchKwargsGenerator(BatchKwargsGenerator):
     * Can a data_asset have more than one regex? (Yes. Think of the case where you want to slice tables by day, week, and month)
 
     TODO:
-    * Figure out where to put reader_method and options. Is there a default option? How does this interact with the Datasource?
+    * Figure out how to handle sorting on partition ids. (e.g Y/D/M timestamps, ["1","11","12","2","3","4"...])
+        ---> Make partition_keys a list of dicts and add a key_parser_method
+            Lists of dicts are slightly unfriendly yaml. Are we okay with that?
+    * Figure out how to handle the case where multiple data_assets share and don't share the same partition_ids.
+        ---> Make partition_keys a top-level variable (to handle the "all-the-same" case),
+            with individual overrides (to handle the "some are different" case),
+            and a partition_key_groups tag, (to handle the "some are different, but in groups" case),
+        ---> individual overrrides override partition_key_groups, which override top-level partition keys
+
+    * Figure out where to put reader_method and options. Is there a default option?
+        ---> This should follow the same pattern as partition_keys.
+            In fact, it's tempting to put them in the same object, but there's nothing that guarantees that the way a file is named corresponds with how it should be parsed. Keep 'em seperate.
     * Figure out how to handle the case of grouping multiple files into a single batch.
         grouping: #expect_exactly_one_match, expect_at_most_one_match, multiple_files_can_match, multiple_files_must_match
+        grouping_method
         ---> when we specify the function to group and load multiple files, this becomes the general case of reader_method and options.
+    * How does all this interact with the Datasource?
     * Figure out how external directives (like downsampling) get passed through.
-    * Figure out how to handle sorting on partition ids. (e.g Y/D/M timestamps, ["1","11","12","2","3","4"...])
-    * Figure out how to handle the case where multiple data_assets share and don't share the same partition_ids.
+
+
     * Figure out which operations are fast and slow, and where caching will be most valuable.
+        ---> Listing data is potentially slow. Attempting to load data is potentially slow
     * Review external-facing verbs, to make sure they're really the ones we want.
+    * how do we handle the case where file formats change within data assets? (e.g. at a specific point in time)
+        ---> Conditional grouping methods (i.e. grouping method is a function of partition_keys)
     """
 
     def __init__(self,
