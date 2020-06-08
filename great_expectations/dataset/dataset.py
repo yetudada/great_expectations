@@ -4141,6 +4141,119 @@ class Dataset(MetaDataset):
 
         return return_obj
 
+
+    @MetaDataset.column_aggregate_expectation
+    def expect_column_value_counts_to_be_between(
+        self,
+        column,
+        min_value=None,
+        max_value=None,
+        result_format=None,
+        include_config=True,
+        catch_exceptions=None,
+        meta=None,
+    ):
+        """
+        Expect value counts in a column to between min_value and max_value.
+
+        :param column:
+        :param min_value:
+        :param max_value:
+        :param result_format:
+        :param include_config:
+        :param catch_exceptions:
+        :param meta: (dict or None)
+        :return:
+            A JSON-serializable expectation result object.
+
+            result_format (str or None): \
+                Which output mode to use: `BOOLEAN_ONLY`, `BASIC`, `COMPLETE`, or `SUMMARY`.
+                For more detail, see :ref:`result_format <result_format>`.
+            include_config (boolean): \
+                If True, then include the expectation config as part of the result object. \
+                For more detail, see :ref:`include_config`.
+            catch_exceptions (boolean or None): \
+                If True, then catch exceptions and include them as part of the result object. \
+                For more detail, see :ref:`catch_exceptions`.
+            meta (dict or None): \
+                A JSON-serializable dictionary (nesting allowed) that will be included in the output without \
+                modification. For more detail, see :ref:`meta`.
+
+        Returns:
+            A JSON-serializable expectation result object.
+
+        """
+        if min_value < 0 or max_value < 0:
+            raise ValueError("min_value and max_value must be positive")
+
+        # Data are expected to be discrete, use value_counts
+        observed_value_counts = self.get_column_value_counts(column)
+
+        if max_value is not None and min_value is not None:
+            unexpected_value_counts = observed_value_counts[(observed_value_counts > max_value) | (observed_value_counts < min_value)]
+        elif max_value is not None:
+            unexpected_value_counts = observed_value_counts[observed_value_counts > max_value]
+        elif min_value is not None:
+            unexpected_value_counts = observed_value_counts[observed_value_counts < min_value]
+        else:
+            unexpected_value_counts = pd.Series([])
+
+
+        success = (unexpected_value_counts.shape[0] == 0)
+
+        return_obj = {
+            "success": success,
+            "result": {
+                "unexpected_value_counts": unexpected_value_counts.to_dict(),
+                "observed_value": observed_value_counts
+            },
+        }
+
+        return return_obj
+
+    @MetaDataset.column_aggregate_expectation
+    def expect_column_value_ratios_to_be_between(
+        self,
+        column,
+        min_value=None,
+        max_value=None,
+        include_nulls=True,
+        result_format=None,
+        include_config=True,
+        catch_exceptions=None,
+        meta=None,
+    ):
+        if min_value < 0 or min_value > 1.0 or max_value < 0 or max_value > 1.0:
+            raise ValueError("min_value and max_value must be between 0 and 1")
+
+        if include_nulls:
+            observed_value_ratios = self.get_column_value_counts(column)/self.get_row_count()
+        else:
+            observed_value_ratios = self.get_column_value_counts(column)/self.get_column_nonnull_count(column)
+
+
+        if max_value is not None and min_value is not None:
+            unexpected_value_ratios = observed_value_ratios[(observed_value_ratios > max_value) | (observed_value_ratios < min_value)]
+        elif max_value is not None:
+            unexpected_value_ratios = observed_value_ratios[observed_value_ratios > max_value]
+        elif min_value is not None:
+            unexpected_value_ratios = observed_value_ratios[observed_value_ratios < min_value]
+        else:
+            unexpected_value_ratios = pd.Series([])
+
+        success = (unexpected_value_ratios.shape[0] == 0)
+
+        return_obj = {
+            "success": success,
+            "result": {
+                "unexpected_value_ratios": unexpected_value_ratios.to_dict(),
+                "observed_value": observed_value_ratios
+            },
+        }
+
+        return return_obj
+
+
     ###
     #
     # Column pairs
