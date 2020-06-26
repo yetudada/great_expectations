@@ -1019,11 +1019,7 @@ class BaseDataContext(object):
             datasource_name
             in self._project_config_with_variables_substituted.datasources
         ):
-            datasource_config = copy.deepcopy(
-                self._project_config_with_variables_substituted.datasources[
-                    datasource_name
-                ]
-            )
+            datasource_config = self._project_config_with_variables_substituted.datasources[datasource_name]
         else:
             raise ValueError(
                 f"Unable to load datasource `{datasource_name}` -- no configuration found or invalid configuration."
