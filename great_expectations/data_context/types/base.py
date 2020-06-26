@@ -225,6 +225,7 @@ class DatasourceConfigSchema(Schema):
         keys=fields.Str(), values=fields.Dict(), allow_none=True
     )
     credentials = fields.Raw(allow_none=True)
+    engine = fields.String(allow_none=True)
 
     @validates_schema
     def validate_schema(self, data, **kwargs):
