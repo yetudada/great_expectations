@@ -136,7 +136,7 @@ class Datasource(object):
     @property
     def config(self):
         config = self._datasource_config
-        engine = config.pop("engine")
+        engine = config.pop("engine", None)
         config_copy = copy.deepcopy(config)
         if engine:
             config_copy["engine"] = engine
