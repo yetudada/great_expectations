@@ -23,6 +23,7 @@ def instantiate_class_from_config(config, runtime_environment, config_defaults=N
     if config_defaults is None:
         config_defaults = {}
 
+    engine = config.pop("engine", None)
     config = copy.deepcopy(config)
 
     module_name = config.pop("module_name", None)
@@ -81,6 +82,8 @@ def instantiate_class_from_config(config, runtime_environment, config_defaults=N
             config_with_defaults.update({"runtime_environment": runtime_environment})
 
     try:
+        if engine:
+            config_with_defaults["engine"] = engine
         class_instance = class_(**config_with_defaults)
     except TypeError as e:
         raise TypeError(
