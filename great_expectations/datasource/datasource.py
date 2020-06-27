@@ -135,7 +135,12 @@ class Datasource(object):
 
     @property
     def config(self):
-        return copy.deepcopy(self._datasource_config)
+        config = self._datasource_config
+        engine = config.pop("engine")
+        config_copy = copy.deepcopy(config)
+        if engine:
+            config_copy["engine"] = engine
+        return config_copy
 
     @property
     def data_context(self):
