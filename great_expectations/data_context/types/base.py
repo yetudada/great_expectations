@@ -247,7 +247,7 @@ class DataContextConfigSchema(Schema):
         error_messages={"invalid": "config version must " "be a number."},
     )
     datasources = fields.Dict(
-        keys=fields.Str(), values=fields.Nested(DatasourceConfigSchema)
+        keys=fields.Str(), values=fields.Raw()
     )
     expectations_store_name = fields.Str()
     validations_store_name = fields.Str()
