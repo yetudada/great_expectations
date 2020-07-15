@@ -829,6 +829,37 @@ This class holds an attribute `spark_df` which is a spark.sql.DataFrame.
 
     @DocInherit
     @MetaSparkDFDataset.column_map_expectation
+    def expect_column_values_to_be_in_lookup_value_set(
+        self,
+        column,  # pyspark.sql.DataFrame
+        lookup_value_set_params,
+        mostly=None,
+        parse_strings_as_datetimes=None,
+        result_format=None,
+        include_config=True,
+        catch_exceptions=None,
+        meta=None,
+    ):
+        # if value_set is None:
+        #     # vacuously true
+        return column.withColumn("__success", lit(True))
+        # if parse_strings_as_datetimes:
+        #     column = self._apply_dateutil_parse(column)
+        #     value_set = [
+        #         parse(value) if isinstance(value, str) else value for value in value_set
+        #     ]
+        # if None in value_set:
+        #     # spark isin returns None when any value is compared to None
+        #     logger.error(
+        #         "expect_column_values_to_be_in_set cannot support a None in the value_set in spark"
+        #     )
+        #     raise ValueError(
+        #         "expect_column_values_to_be_in_set cannot support a None in the value_set in spark"
+        #     )
+        # return column.withColumn("__success", column[0].isin(value_set))
+
+    @DocInherit
+    @MetaSparkDFDataset.column_map_expectation
     def expect_column_values_to_not_be_in_set(
         self,
         column,  # pyspark.sql.DataFrame

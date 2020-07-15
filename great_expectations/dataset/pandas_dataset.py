@@ -18,7 +18,9 @@ from great_expectations.dataset.util import (
     _scipy_distribution_positional_args_from_dict,
     is_valid_continuous_partition_object,
     validate_distribution_parameters,
+    LookupTypes
 )
+from great_expectations.data_context.store.query_store import SqlAlchemyQueryStore
 
 from .dataset import Dataset
 
@@ -958,6 +960,76 @@ Notes:
             parsed_value_set = value_set
 
         return column.isin(parsed_value_set)
+
+    @DocInherit
+    # @MetaPandasDataset.column_map_expectation
+    def expect_column_values_to_be_in_lookup_value_set(
+        self,
+        column,
+        lookup_value_set_params,
+        mostly=None,
+        parse_strings_as_datetimes=None,
+        result_format=None,
+        include_config=True,
+        catch_exceptions=None,
+        meta=None,
+    ):
+
+        # if lookup_value_set_params['lookup_type'] == LookupTypes.SQL_QUERY:
+        if lookup_value_set_params['lookup_type'] == "sql_query":
+            # Get query store and add new query that was passed in
+            stores = self._data_context.stores
+
+            query_store_name = lookup_value_set_params["query_store_name"]
+            query_store = stores[query_store_name]
+
+            query = lookup_value_set_params['query']
+
+            # pass new query in to original expect_column_values_to_be_in_set
+
+            # TODO: This is hackathon hacky - the name '__temp_query__' is
+            # just to not have collision with any user defined queries
+            temp_query_name = '__temp_query__'
+
+
+            query_store.set(temp_query_name, query)
+
+            urn = (
+                f"urn:great_expectations:stores:"
+                f"{query_store_name}:{temp_query_name}"
+            )
+            value_set = {"$PARAMETER": urn}
+
+            return self.expect_column_values_to_be_in_set(
+                column=column,
+                value_set=value_set,
+                mostly=mostly,
+                parse_strings_as_datetimes=parse_strings_as_datetimes,
+                result_format=result_format,
+                include_config=include_config,
+                catch_exceptions=catch_exceptions,
+                meta=meta,
+            )
+        # elif lookup_value_set_params['lookup_type'] == LookupTypes.CSV_URL:
+        elif lookup_value_set_params['lookup_type'] == "csv_url":
+            column_name = lookup_value_set_params['column_name']
+            url = lookup_value_set_params['url']
+            df = pd.read_csv(url)
+            value_set = df[column_name].unique().tolist()
+
+            return self.expect_column_values_to_be_in_set(
+                column=column,
+                value_set=value_set,
+                mostly=mostly,
+                parse_strings_as_datetimes=parse_strings_as_datetimes,
+                result_format=result_format,
+                include_config=include_config,
+                catch_exceptions=catch_exceptions,
+                meta=meta,
+            )
+
+        else:
+            raise NotImplementedError
 
     @DocInherit
     @MetaPandasDataset.column_map_expectation

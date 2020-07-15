@@ -3,6 +3,7 @@
 import logging
 import warnings
 from typing import Any, List
+from enum import Enum
 
 import numpy as np
 import pandas as pd
@@ -598,3 +599,8 @@ def check_sql_engine_dialect(
         return isinstance(actual_sql_engine_dialect, candidate_sql_engine_dialect)
     except (AttributeError, TypeError):
         return False
+
+
+class LookupTypes(Enum):
+    SQL_QUERY = "sql_query"
+    CSV_URL = "csv_url"

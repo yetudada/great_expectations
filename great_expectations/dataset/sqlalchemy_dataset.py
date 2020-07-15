@@ -1284,6 +1284,30 @@ class SqlAlchemyDataset(MetaSqlAlchemyDataset):
 
     @DocInherit
     @MetaSqlAlchemyDataset.column_map_expectation
+    def expect_column_values_to_be_in_lookup_value_set(
+        self,
+        column,
+        lookup_value_set_params,
+        mostly=None,
+        parse_strings_as_datetimes=None,
+        result_format=None,
+        include_config=True,
+        catch_exceptions=None,
+        meta=None,
+    ):
+        return True
+        # if value_set is None:
+        #     # vacuously true
+        #     return True
+
+        # if parse_strings_as_datetimes:
+        #     parsed_value_set = self._parse_value_set(value_set)
+        # else:
+        #     parsed_value_set = value_set
+        # return sa.column(column).in_(tuple(parsed_value_set))
+
+    @DocInherit
+    @MetaSqlAlchemyDataset.column_map_expectation
     def expect_column_values_to_not_be_in_set(
         self,
         column,
