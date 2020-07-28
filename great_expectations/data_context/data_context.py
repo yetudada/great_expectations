@@ -49,7 +49,7 @@ from great_expectations.data_context.types.base import (
     anonymizedUsageStatisticsSchema,
     dataContextConfigSchema,
     datasourceConfigSchema,
-)
+    CheckpointSchema)
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
     ValidationResultIdentifier,
@@ -2212,8 +2212,9 @@ class DataContext(BaseDataContext):
         )
         try:
             with open(checkpoint_path, "r") as f:
-                checkpoint = yaml.load(f.read())
-                return self._validate_checkpoint(checkpoint, checkpoint_name)
+                checkpoint = CheckpointSchema().load(yaml.load(f.read()))
+                return checkpoint
+                # return self._validate_checkpoint(checkpoint, checkpoint_name)
         except FileNotFoundError:
             raise ge_exceptions.CheckpointNotFoundError(
                 f"Could not find checkpoint `{checkpoint_name}`."
