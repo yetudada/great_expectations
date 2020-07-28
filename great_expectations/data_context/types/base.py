@@ -1,6 +1,7 @@
 import logging
 import uuid
 from copy import deepcopy
+from typing import List
 
 from marshmallow import (
     INCLUDE,
@@ -15,6 +16,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 
 import great_expectations.exceptions as ge_exceptions
+from great_expectations.core.id_dict import BatchKwargs
 from great_expectations.types import DictDot
 from great_expectations.types.configurations import ClassConfigSchema
 
@@ -363,7 +365,6 @@ class NotebooksConfigSchema(Schema):
     def make_notebooks_config(self, data, **kwargs):
         return NotebooksConfig(**data)
 
-
 class DataContextConfigSchema(Schema):
     config_version = fields.Number(
         validate=lambda x: 0 < x < 100,
@@ -436,3 +437,46 @@ dataContextConfigSchema = DataContextConfigSchema()
 datasourceConfigSchema = DatasourceConfigSchema()
 anonymizedUsageStatisticsSchema = AnonymizedUsageStatisticsConfigSchema()
 notebookConfigSchema = NotebookConfigSchema()
+
+
+# class CheckpointConfig(DictDot):
+#     def __init__(self, checkpoint_name: str, validation_operator_name: str, batch_kwargs: dict):
+#         self.checkpoint_name = checkpoint_name
+#         self.validation_operator_name = validation_operator_name
+#         self.batch_kwargs = batch_kwargs
+
+class Checkpoint():
+    # TODO: Do we want this object to do things - e.g. can a checkpoint run itself, or do you hand the checkpoint to a data context and have it run a checkpoint?
+    # TODO: Is it ok that we don't have explicit structures for batch_kwargs, or is that not the responsibility of checkpoints?
+    # TODO: Add a deserialization test
+    # TODO: When do we need an extra config class vs. not?
+
+    # TODO: Update all of the checkpoint tests in test_data_context.py. Potentially eliminate some of the tests, but be sure we have good error messages.
+    # TODO: Maybe in future: move function called write_checkpoint_to_disk from CLI to data context
+    # TODO: Corresponding
+
+    def __init__(self, checkpoint_name: str, validation_operator_name: str, batches: List[dict]):
+        self._checkpoint_name = checkpoint_name
+        self._validation_operator_name = validation_operator_name
+        self._batches = batches
+
+    @property
+    def checkpoint_name(self) -> str:
+        return self._checkpoint_name
+
+    @property
+    def validation_operator_name(self) -> str:
+        return self._validation_operator_name
+
+    @property
+    def batches(self) -> List[BatchKwargs]:
+        return self._batches
+
+class CheckpointSchema(Schema):
+    checkpoint_name = fields.String()
+    validation_operator_name = fields.String()
+    batches = fields.List(fields.Dict())
+
+    @post_load
+    def make_checkpoint(self, data, **kwargs):
+        return Checkpoint(**data)

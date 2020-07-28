@@ -1,4 +1,5 @@
 validation_operator_name: action_list_operator
+checkpoint_name: my_checkpoint
 batches:
   - batch_kwargs:
       path: /Users/me/projects/my_project/data/data.csv

@@ -18,7 +18,7 @@ from great_expectations.data_context import (
     ExplorerDataContext,
 )
 from great_expectations.data_context.store import ExpectationsStore
-from great_expectations.data_context.types.base import DataContextConfig
+from great_expectations.data_context.types.base import DataContextConfig, Checkpoint
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
 )
@@ -1441,12 +1441,10 @@ def test_get_checkpoint_raises_error_empty_checkpoint(empty_context_with_checkpo
 def test_get_checkpoint(empty_context_with_checkpoint):
     context = empty_context_with_checkpoint
     obs = context.get_checkpoint("my_checkpoint")
-    assert isinstance(obs, dict)
-    assert {
-        "validation_operator_name": "action_list_operator",
-        "batches": [
-            {
-                "batch_kwargs": {
+    assert isinstance(obs, Checkpoint)
+    assert obs.validation_operator_name == "action_list_operator"
+    assert obs.batches == [{
+                "batches": {
                     "path": "/Users/me/projects/my_project/data/data.csv",
                     "datasource": "my_filesystem_datasource",
                     "reader_method": "read_csv",
@@ -1454,14 +1452,12 @@ def test_get_checkpoint(empty_context_with_checkpoint):
                 "expectation_suite_names": ["suite_one", "suite_two"],
             },
             {
-                "batch_kwargs": {
+                "batches": {
                     "query": "SELECT * FROM users WHERE status = 1",
                     "datasource": "my_redshift_datasource",
                 },
                 "expectation_suite_names": ["suite_three"],
-            },
-        ],
-    }
+            }]
 
 
 def test_get_checkpoint_default_validation_operator(empty_data_context):
