@@ -216,14 +216,10 @@ class ValidationResultsPageRenderer(Renderer):
         )
         if success:
             success = "Succeeded"
-            html_success_icon = (
-                '<i class="fas fa-check-circle text-success" aria-hidden="true"></i>'
-            )
+            html_success_icon = "✅"
         else:
             success = "Failed"
-            html_success_icon = (
-                '<i class="fas fa-times text-danger" aria-hidden="true"></i>'
-            )
+            html_success_icon = "❌"
         return RenderedHeaderContent(
             **{
                 "content_block_type": "header",

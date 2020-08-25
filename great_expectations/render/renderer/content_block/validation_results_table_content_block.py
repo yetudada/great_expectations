@@ -64,19 +64,7 @@ class ValidationResultsTableContentBlockRenderer(ExpectationStringRenderer):
                     "content_block_type": "string_template",
                     "string_template": {
                         "template": "$icon",
-                        "params": {"icon": "", "markdown_status_icon": "✅"},
-                        "styling": {
-                            "params": {
-                                "icon": {
-                                    "classes": [
-                                        "fas",
-                                        "fa-check-circle",
-                                        "text-success",
-                                    ],
-                                    "tag": "i",
-                                }
-                            }
-                        },
+                        "params": {"icon": "✅", "markdown_status_icon": "✅"},
                     },
                     "styling": {
                         "parent": {
@@ -91,15 +79,7 @@ class ValidationResultsTableContentBlockRenderer(ExpectationStringRenderer):
                     "content_block_type": "string_template",
                     "string_template": {
                         "template": "$icon",
-                        "params": {"icon": "", "markdown_status_icon": "❌"},
-                        "styling": {
-                            "params": {
-                                "icon": {
-                                    "tag": "i",
-                                    "classes": ["fas", "fa-times", "text-danger"],
-                                }
-                            }
-                        },
+                        "params": {"icon": "❌", "markdown_status_icon": "❌"},
                     },
                 }
             )
