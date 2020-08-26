@@ -36,7 +36,6 @@ from great_expectations.util import (
     load_class,
     verify_dynamic_loading_support,
 )
-from great_expectations.validation_operators import ValidationOperator
 
 logger = logging.getLogger(__name__)
 
