@@ -1007,7 +1007,7 @@ def get_batch_kwargs(
             )
         )
 
-    return (datasource_name, batch_kwargs_generator_name, data_asset_name, batch_kwargs)
+    return datasource_name, batch_kwargs_generator_name, data_asset_name, batch_kwargs
 
 
 def _get_batch_kwargs_from_generator_or_from_file_path(
@@ -1104,7 +1104,7 @@ We could not determine the format of the file. What is it?
             batch_kwargs = generator.build_batch_kwargs(
                 data_asset_name, **additional_batch_kwargs
             )
-            return (data_asset_name, batch_kwargs)
+            return data_asset_name, batch_kwargs
 
     # No generator name was passed or the user chose to enter a file path
 
@@ -1197,7 +1197,7 @@ We have saved your setup progress. When you are ready, run great_expectations in
 
     batch_kwargs["data_asset_name"] = data_asset_name
 
-    return (data_asset_name, batch_kwargs)
+    return data_asset_name, batch_kwargs
 
 
 def _get_batch_kwargs_for_sqlalchemy_datasource(
