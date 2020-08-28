@@ -124,12 +124,12 @@ def validation_operator_run(name, run_name, validation_config_file, suite, direc
         Use the `--validation_config_file` argument to specify the path of the validation configuration JSON file. This file can be used to instruct a validation operator to validate multiple batches of data and use multiple expectation suites to validate each batch.
 
         Learn how to create a validation config file here:
-        https://great-expectations.readthedocs.io/en/latest/command_line.html#great-expectations-validation-operator-run-validation-config-file-validation-config-file-path
+        https://docs.greatexpectations.io/en/latest/guides/how_to_guides/miscellaneous/command_line.html#non-interactive-good-for-production
 
         This command exits with 0 if the validation operator ran and the "success" attribute in its return object is True. Otherwise, the command exits with 1.
 
     To learn more about validation operators, go here:
-    https://great-expectations.readthedocs.io/en/latest/features/validation.html#validation-operators
+    https://docs.greatexpectations.io/en/latest/reference/core_concepts/validation_operators_and_actions.html
     """
 
     try:
