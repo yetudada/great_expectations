@@ -44,8 +44,7 @@ def mocked_glob_kwargs(basic_pandas_datasource):
             kwargs
             for kwargs in glob_generator.get_iterator(data_asset_name="test_asset")
         ]
-    print("HELLO WILL \n\n")
-    print(kwargs)
+
     return kwargs
 
 
