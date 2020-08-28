@@ -175,7 +175,7 @@ def validation_operator_run(name, run_name, validation_config_file, suite, direc
                 cli_message(
                     """
 Please use --suite argument to specify the name of the expectation suite.
-Call `great_expectation suite list` command to list the expectation suites in your project.
+Call `great_expectations suite list` command to list the expectation suites in your project.
 """
                 )
                 send_usage_message(
@@ -193,7 +193,7 @@ Call `great_expectation suite list` command to list the expectation suites in yo
                 cli_message(
                     """
 Please use --name argument to specify the name of the validation operator.
-Call `great_expectation validation-operator list` command to list the operators in your project.
+Call `great_expectations validation-operator list` command to list the operators in your project.
 """
                 )
                 send_usage_message(
@@ -207,7 +207,7 @@ Call `great_expectation validation-operator list` command to list the operators 
                     cli_message(
                         f"""
 Could not find a validation operator {name}.
-Call `great_expectation validation-operator list` command to list the operators in your project.
+Call `great_expectations validation-operator list` command to list the operators in your project.
 """
                     )
                     send_usage_message(
