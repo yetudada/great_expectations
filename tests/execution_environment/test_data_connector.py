@@ -16,6 +16,8 @@ from great_expectations.execution_environment.execution_environment import *
 
 logger = logging.getLogger(__name__)
 
+# def test_data_connector_separately():
+
 
 def test_build_execution_environment():
 
@@ -37,16 +39,25 @@ def test_build_execution_environment():
     """
 
     execution_engine = {
-        "class_name": "MetaPandasExecutionEngine",
+        "class_name": "PandasExecutionEngine",
         "module_name": "great_expectations.execution_engine.pandas_execution_engine",
     }
 
-    covid_directory = "/Users/work/Development/GE_Data/"
+    covid_directory = "/Users/work/Development/GE_Data/Covid_renamed/"
+    # covid_directory = "/Users/work/Development/GE_Data/covidall"
+    # asset_globs = {
+    #    "default": {
+    #        "glob": "*",
+    #        "partition_regex": r"^((19|20)\d\d[- /.]?(0[1-9]|1[012])[- /.]?(0[1-9]|[12][0-9]|3[01])_(.*))\.csv",
+    #        "match_group_id": 1,
+    #        "reader_method": "read_csv",
+    #    }
+    # }
 
     asset_globs = {
-        "default": {
+        "covid_glob": {
             "glob": "*",
-            "partition_regex": r"^((19|20)\d\d[- /.]?(0[1-9]|1[012])[- /.]?(0[1-9]|[12][0-9]|3[01])_(.*))\.csv",
+            "partition_regex": r".*.csv",
             "match_group_id": 1,
             "reader_method": "read_csv",
         }
@@ -61,9 +72,10 @@ def test_build_execution_environment():
     # print(exec.build_configuration(class_name = "MetaPandasExecutionEngine"))
 
     ret = execution_environment.add_data_connector(
-        name="testing_me",
+        name="covid_glob_connector",
         class_name="GlobReaderDataConnector",
         base_directory=covid_directory,
+        asset_globs=asset_globs,
     )
 
     """
@@ -71,32 +83,19 @@ def test_build_execution_environment():
     """
     print(execution_environment._execution_environment_config)
 
-    my_connector = execution_environment.get_data_connector("testing_me")
-    # print(my_connector.get_available_data_asset_names()) # {'names': [('default', 'path')]} .. this is ok?
+    my_connector = execution_environment.get_data_connector("covid_glob_connector")
+    print(
+        my_connector.get_available_data_asset_names()
+    )  # {'names': [('default', 'path')]} .. this is ok?
 
-    print(my_connector.get_config())  # {'class_name': 'GlobReaderDataConnector'}
-    # print(my_connector.build_batch_kwargs(data_asset_name="default"))
+    # you have covid_glob = path:
+    # print(my_connector.get_config())  # {'class_name': 'GlobReaderDataConnector'}
+    # print(my_connector.build_batch_kwargs(data_asset_name="covid_glob"))
 
-    my_iterator = my_connector.get_iterator(data_asset_name="default")
-
-    for item in my_iterator:
-        print(item)
-        print("-----")
-
-    # "default": {
-    #    "glob": "*",
-    #    "partition_regex": r"^((19|20)\d\d[- /.]?(0[1-9]|1[012])[- /.]?(0[1-9]|[12][0-9]|3[01])_(.*))\.csv",
-    #    "match_group_id": 1,
-    #    "reader_method": "read_csv",
-    # }
-
-    # def test_s3_generator_build_batch_kwargs_partition_id(s3_generator):
-    #    batch_kwargs = s3_generator.build_batch_kwargs("data", "you")
-    #    assert batch_kwargs["s3"] == "s3a://test_bucket/data/for/you.csv"
-
-    # print(execution_environment.list_data_connectors())
-    # obs = datasource.list_batch_kwargs_generators()
-    # Execution Environment has its own methods to do this
+    kwargs = [
+        kwargs for kwargs in my_connector.get_iterator(data_asset_name="covid_glob")
+    ]
+    # print(kwargs)
 
 
 # def test_data_connector():

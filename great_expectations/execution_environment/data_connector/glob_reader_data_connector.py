@@ -30,8 +30,6 @@ class GlobReaderDataConnector(DataConnector):
     their name.
 
     A fully configured GlobReaderDataConnector in yml might look like the following::
-
-        #TODO: <WILL> this might change
         my_datasource:
           class_name: PandasDatasource
           batch_kwargs_generators:
@@ -193,8 +191,6 @@ class GlobReaderDataConnector(DataConnector):
         self, path, glob_config, reader_method=None, reader_options=None, limit=None
     ):
 
-        #### how do we do this now?
-        # TODO : this is the big one :
         batch_kwargs = self._execution_environment.execution_engine.process_batch_parameters(
             reader_method=reader_method
             or glob_config.get("reader_method")
@@ -204,6 +200,7 @@ class GlobReaderDataConnector(DataConnector):
             or self.reader_options,
             limit=limit or glob_config.get("limit"),
         )
+
         batch_kwargs["path"] = path
         batch_kwargs["datasource"] = self._execution_environment.name
         return PathBatchKwargs(batch_kwargs)
