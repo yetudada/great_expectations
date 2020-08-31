@@ -51,14 +51,6 @@ def mocked_glob_kwargs(basic_pandas_execution_engine):
             kwargs
             for kwargs in glob_generator.get_iterator(data_asset_name="test_asset")
         ]
-        print("hello will\n\n\n")
         print(kwargs)
 
     return kwargs
-
-
-# def test_glob_reader_data_connector_returns_typed_kwargs(mocked_glob_kwargs):
-#    # Returned Kwargs should be PathKwargs.
-#    assert all([isinstance(kwargs, PathBatchKwargs) for kwargs in mocked_glob_kwargs])
-#    # Path Kwargs should be usable by PandasDatasource and SparkDFDatasource
-#    assert issubclass(PathBatchKwargs, PandasDatasourceBatchKwargs)

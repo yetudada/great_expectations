@@ -18,11 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def test_build_execution_environment():
-    # what we are mimicing is this line from
     # we have this DataSource Design documennt : https://github.com/superconductive/design/blob/main/docs/20200813_datasource_configuration.md
     """
     execution_environments:
-        pandas:
+     fa   pandas:
         default: true
         execution_engine:
             class_name: PandasDataset
@@ -38,23 +37,9 @@ def test_build_execution_environment():
         "module_name": "great_expectations.execution_engine.pandas_execution_engine",
     }
 
-    covid_directory = "/Users/work/Development/GE_Data/Covid_renamed/"
-    # covid_directory = "/Users/work/Development/GE_Data/covidall"
-    # asset_globs = {
-    #    "default": {
-    #        "glob": "*",
-    #        "partition_regex": r"^((19|20)\d\d[- /.]?(0[1-9]|1[012])[- /.]?(0[1-9]|[12][0-9]|3[01])_(.*))\.csv",
-    #        "match_group_id": 1,
-    #        "reader_method": "read_csv",
-    #    }
-    # }
+    test_directory = "/Users/work/Development/GE_Data/Covid_renamed/"
 
-    """
-    test_data_connector.py::test_build_execution_environment PASSED          [100%][{'partition_definition': {'year': '2020', 'file_num': '1'}, 'partition_id': '2020-1'}, {'partition_definition': {'year': '2020', 'file_num': '3'}, 'partition_id': '2020-3'}, {'partition_definition': {'year': '2020', 'file_num': '2'}, 'partition_id': '2020-2'}]
-
-
-    """
-    asset_globs = {
+    asset_params = {
         "test_glob": {
             "glob": "/Users/work/Development/GE_Data/Covid_renamed/*.csv",
             "partition_regex": r"/Users/work/Development/GE_Data/Covid_renamed/file_(.*)_(.*).csv",
@@ -74,27 +59,32 @@ def test_build_execution_environment():
     ret = execution_environment.add_data_connector(
         name="covid_files_connector",
         class_name="FilesDataConnector",
-        base_directory=covid_directory,
-        asset_globs=asset_globs,
+        base_directory=test_directory,
+        asset_globs=asset_params,
     )
-
-    """
-    {'execution_engine': {'class_name': 'MetaPandasExecutionEngine', 'module_name': 'great_expectations.execution_engine.pandas_execution_engine'}, 'data_connectors': {'hello_sir': {'class_name': 'GlobReaderDataConnector'}}}
-    """
-    # print(execution_environment._execution_environment_config)
 
     my_connector = execution_environment.get_data_connector("covid_files_connector")
 
-    # print(
-    #    my_connector.get_available_data_asset_names()
-    # )
+    result_we_get = my_connector.get_available_partition_ids(
+        data_asset_name="test_glob"
+    )
 
-    print(my_connector.get_available_partition_ids(data_asset_name="test_glob"))
-    # {'names': [('default', 'path')]} .. this is ok?
+    result_we_want = [
+        {
+            "partition_definition": {"year": "2020", "file_num": "1"},
+            "partition_id": "2020-1",
+        },
+        {
+            "partition_definition": {"year": "2020", "file_num": "3"},
+            "partition_id": "2020-3",
+        },
+        {
+            "partition_definition": {"year": "2020", "file_num": "2"},
+            "partition_id": "2020-2",
+        },
+    ]
 
-    # kwargs = [
-    #    kwargs for kwargs in my_connector.get_iterator(data_asset_name="covid_glob")
-    # ]
+    assert result_we_get == result_we_want
 
 
 # def test_data_connector():

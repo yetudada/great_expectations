@@ -126,25 +126,19 @@ class FilesDataConnector(DataConnector):
 
     def get_available_partition_ids(self, data_asset_name=None):
         # TODO: add the depcrecated option: generator_asset
-        glob_config = self._get_data_asset_config(
-            data_asset_name=data_asset_name
-        )  # TODO : rename glob_config to something better
-        batch_paths = self._get_data_asset_paths(
-            data_asset_name=data_asset_name
-        )  # if we are using configurations then we dont need this
+        files_config = self._get_data_asset_config(data_asset_name=data_asset_name)
+        batch_paths = self._get_data_asset_paths(data_asset_name=data_asset_name)
         partition_ids = [
-            self._partitioner(path, glob_config)
+            self._partitioner(path, files_config)
             for path in batch_paths
-            if self._partitioner(path, glob_config) is not None
+            if self._partitioner(path, files_config) is not None
         ]
         return partition_ids
 
-    def _partitioner(self, path, glob_config):
-        partition = {}
-        partition_definition_dict = {}
-
-        if "partition_regex" in glob_config:
-            matches = re.match(glob_config["partition_regex"], path)
+    def _partitioner(self, path, files_config):
+        partitions = {}
+        if "partition_regex" in files_config:
+            matches = re.match(files_config["partition_regex"], path)
             if matches is None:
                 logger.warning("No match found for path: %s" % path)
                 return (
@@ -155,35 +149,45 @@ class FilesDataConnector(DataConnector):
                 )
             else:
                 # need to check that matches length is the same as partition_param
-                if "partition_param" in glob_config:
-                    num_partition_params = len(glob_config["partition_param"])
+                if "partition_param" in files_config:
+                    partition_params = files_config["partition_param"]
+
                     try:
-                        _ = matches[num_partition_params]  # try it and throw away
+                        _ = matches[
+                            len(partition_params)
+                        ]  # check validitiy of partition params and whether the regex was configured correctly
+
                     except:
-                        logger.warning("The number of matches not match the delimiter")
-                        print("please check regex")
+                        logger.warning(
+                            "The number of matches not match the delimiter. See if your partitions are defined correctly"
+                        )
+                        print("please check regex")  # TODO: Beef up this error message
 
                     # build dictionary:
-                    partition_params = glob_config["partition_param"]
+                    # NOTE : matches begin with the full regex match at index=0 and then each matching group
+                    # and then each subsequent match in following indices.
+                    # this is why partition_definition_inner_dict is loaded with partition_params[i] as key
+                    # and matches[i+1] as value
+                    partition_definition_inner_dict = {}
                     for i in range(len(partition_params)):
-                        partition_definition_dict[partition_params[i]] = matches[
+                        partition_definition_inner_dict[partition_params[i]] = matches[
                             i + 1
-                        ]  # TODO: magic number
-                    partition["partition_definition"] = partition_definition_dict
-                # "partition_param": ["year", "file_num"],
-                # "partition_delimiter": "-",
-                if "partition_delimiter" in glob_config:
-                    delim = glob_config["partition_delimiter"]
+                        ]
+                    partitions["partition_definition"] = partition_definition_inner_dict
+
+                if "partition_delimiter" in files_config:
+                    delim = files_config["partition_delimiter"]
                 else:
                     delim = "-"
 
                 # process partition_definition into partition id
                 partition_id = []
-                for key in partition["partition_definition"].keys():
-                    partition_id.append(str(partition["partition_definition"][key]))
+                for key in partitions["partition_definition"].keys():
+                    partition_id.append(str(partitions["partition_definition"][key]))
                 partition_id = delim.join(partition_id)
-                partition["partition_id"] = partition_id
-            return partition
+                partitions["partition_id"] = partition_id
+
+        return partitions
 
     def _get_data_asset_paths(self, data_asset_name):
         """
@@ -258,40 +262,3 @@ class FilesDataConnector(DataConnector):
             raise BatchKwargsError(
                 "Unknown asset_name %s" % data_asset_name, batch_kwargs
             )
-
-    def old_partitioner(self, path, glob_config):
-        if "partition_regex" in glob_config:
-            match_group_id = glob_config.get("match_group_id", 1)
-            matches = re.match(glob_config["partition_regex"], path)
-            # In the case that there is a defined regex, the user *wanted* a partition. But it didn't match.
-            # So, we'll add a *sortable* id
-            if matches is None:
-                logger.warning("No match found for path: %s" % path)
-                return (
-                    datetime.datetime.now(datetime.timezone.utc).strftime(
-                        "%Y%m%dT%H%M%S.%fZ"
-                    )
-                    + "__unmatched"
-                )
-            else:
-                try:
-                    return matches.group(match_group_id)
-                except IndexError:
-                    logger.warning(
-                        "No match group %d in path %s" % (match_group_id, path)
-                    )
-                    return (
-                        datetime.datetime.now(datetime.timezone.utc).strftime(
-                            "%Y%m%dT%H%M%S.%fZ"
-                        )
-                        + "__no_match_group"
-                    )
-
-        # If there is no partitioner defined, fall back on using the path as a partition_id
-        else:
-            if path.startswith(self.base_directory):
-                path = path[len(self.base_directory) :]
-                # In case os.join had to add a "/"
-                if path.startswith("/"):
-                    path = path[1:]
-            return path
