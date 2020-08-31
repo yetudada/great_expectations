@@ -63,10 +63,37 @@ class DataConnector(object):
         """
         raise NotImplementedError
 
+    def get_available_partition_definitions(self, data_asset_name=None):
+        """
+        Applies the current _partitioner to the batches available on data_asset_name and returns a list of valid
+        partition_id strings that can be used to identify batches of data.
+
+        *Note* partition definitions are used to build partition ids and partition ids can be decomposed into a partition
+        definition
+
+        partitions = { partition_definition: {"year": "2020", "file": "1"},
+	                   partition_id: "2020-1"
+                     }
+        Args:
+            data_asset_name: the data asset whose partitions should be returned.
+
+        Returns:
+            list of dictionaries that describe the partitions
+
+        """
+        raise NotImplementedError
+
     def get_available_partition_ids(self, data_asset_name=None):
         """
         Applies the current _partitioner to the batches available on data_asset_name and returns a list of valid
         partition_id strings that can be used to identify batches of data.
+
+        *Note* partition definitions are used to build partition ids and partition ids can be decomposed into a partition
+        definition
+
+        partitions = { partition_definition: {"year": "2020", "file": "1"},
+	                   partition_id: "2020-1"
+                     }
 
         Args:
             data_asset_name: the data asset whose partitions should be returned.

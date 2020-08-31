@@ -9,9 +9,7 @@ except ImportError:
 
 import great_expectations.execution_environment.data_connector
 from great_expectations.core.id_dict import BatchKwargs
-from great_expectations.execution_environment.data_connector import (
-    GlobReaderDataConnector,
-)
+from great_expectations.execution_environment.data_connector import FilesDataConnector
 from great_expectations.execution_environment.execution_environment import (
     ExecutionEnvironment as exec,
 )
@@ -24,7 +22,7 @@ from great_expectations.execution_environment.types import (
 
 
 @pytest.fixture(scope="module")
-def mocked_glob_kwargs(basic_pandas_datasource):
+def mocked_glob_kwargs(basic_pandas_execution_engine):
     test_asset_globs = {
         "test_asset": {
             "glob": "*",
@@ -32,9 +30,6 @@ def mocked_glob_kwargs(basic_pandas_datasource):
             "match_group_id": 1,
         }
     }
-    glob_generator = GlobReaderDataConnector(
-        "test_generator", data=basic_pandas_datasource, asset_globs=test_asset_globs,
-    )
 
     with mock.patch("glob.glob") as mock_glob:
         mock_glob_match = [
@@ -45,17 +40,25 @@ def mocked_glob_kwargs(basic_pandas_datasource):
             "20190105__my_data.csv",
         ]
         mock_glob.return_value = mock_glob_match
+
+        glob_generator = FilesDataConnector(
+            name="test_data_connector",
+            base_directory=mock_glob,
+            asset_globs=test_asset_globs,
+        )
+
         kwargs = [
             kwargs
             for kwargs in glob_generator.get_iterator(data_asset_name="test_asset")
         ]
+        print("hello will\n\n\n")
+        print(kwargs)
 
     return kwargs
 
 
-def test_glob_reader_generator_returns_typed_kwargs(mocked_glob_kwargs):
-    # Returned Kwargs should be PathKwargs.
-    assert all([isinstance(kwargs, PathBatchKwargs) for kwargs in mocked_glob_kwargs])
-    # Path Kwargs should be usable by PandasDatasource and SparkDFDatasource
-    assert issubclass(PathBatchKwargs, PandasDatasourceBatchKwargs)
-    assert issubclass(PathBatchKwargs, SparkDFDatasourceBatchKwargs)
+# def test_glob_reader_data_connector_returns_typed_kwargs(mocked_glob_kwargs):
+#    # Returned Kwargs should be PathKwargs.
+#    assert all([isinstance(kwargs, PathBatchKwargs) for kwargs in mocked_glob_kwargs])
+#    # Path Kwargs should be usable by PandasDatasource and SparkDFDatasource
+#    assert issubclass(PathBatchKwargs, PandasDatasourceBatchKwargs)

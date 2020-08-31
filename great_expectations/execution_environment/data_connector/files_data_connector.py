@@ -14,8 +14,8 @@ from great_expectations.execution_environment.types import PathBatchKwargs
 logger = logging.getLogger(__name__)
 
 
-class GlobReaderDataConnector(DataConnector):
-    r"""GlobReaderDataConnector processes files in a directory according to glob patterns to produce batches of data.
+class FilesDataConnector(DataConnector):
+    r"""FilesDataConnector processes files in a directory according to glob patterns to produce batches of data.
 
     A more interesting asset_glob might look like the following::
 
@@ -29,7 +29,7 @@ class GlobReaderDataConnector(DataConnector):
     forward slash, period, or null separated) will be identified by a partition_id equal to just the date portion of
     their name.
 
-    A fully configured GlobReaderDataConnector in yml might look like the following::
+    A fully configured FilesDataConnector in yml might look like the following::
         my_datasource:
           class_name: PandasDatasource
           batch_kwargs_generators:
@@ -63,7 +63,7 @@ class GlobReaderDataConnector(DataConnector):
         asset_globs=None,
         reader_method=None,
     ):
-        logger.debug("Constructing GlobReaderBatchKwargsGenerator {!r}".format(name))
+        logger.debug("Constructing FilesDataConnector {!r}".format(name))
         super().__init__(name, execution_environment=execution_environment)
 
         if reader_options is None:
@@ -124,26 +124,66 @@ class GlobReaderDataConnector(DataConnector):
 
         # TODO: deprecate generator_asset argument
 
-    def get_available_partition_ids(self, generator_asset=None, data_asset_name=None):
-        assert (generator_asset and not data_asset_name) or (
-            not generator_asset and data_asset_name
-        ), "Please provide either generator_asset or data_asset_name."
-        if generator_asset:
-            warnings.warn(
-                "The 'generator_asset' argument will be deprecated and renamed to 'data_asset_name'. "
-                "Please update code accordingly.",
-                DeprecationWarning,
-            )
-            data_asset_name = generator_asset
-
-        glob_config = self._get_data_asset_config(data_asset_name)
-        batch_paths = self._get_data_asset_paths(data_asset_name=data_asset_name)
+    def get_available_partition_ids(self, data_asset_name=None):
+        # TODO: add the depcrecated option: generator_asset
+        glob_config = self._get_data_asset_config(
+            data_asset_name=data_asset_name
+        )  # TODO : rename glob_config to something better
+        batch_paths = self._get_data_asset_paths(
+            data_asset_name=data_asset_name
+        )  # if we are using configurations then we dont need this
         partition_ids = [
             self._partitioner(path, glob_config)
             for path in batch_paths
             if self._partitioner(path, glob_config) is not None
         ]
         return partition_ids
+
+    def _partitioner(self, path, glob_config):
+        partition = {}
+        partition_definition_dict = {}
+
+        if "partition_regex" in glob_config:
+            matches = re.match(glob_config["partition_regex"], path)
+            if matches is None:
+                logger.warning("No match found for path: %s" % path)
+                return (
+                    datetime.datetime.now(datetime.timezone.utc).strftime(
+                        "%Y%m%dT%H%M%S.%fZ"
+                    )
+                    + "__unmatched"
+                )
+            else:
+                # need to check that matches length is the same as partition_param
+                if "partition_param" in glob_config:
+                    num_partition_params = len(glob_config["partition_param"])
+                    try:
+                        _ = matches[num_partition_params]  # try it and throw away
+                    except:
+                        logger.warning("The number of matches not match the delimiter")
+                        print("please check regex")
+
+                    # build dictionary:
+                    partition_params = glob_config["partition_param"]
+                    for i in range(len(partition_params)):
+                        partition_definition_dict[partition_params[i]] = matches[
+                            i + 1
+                        ]  # TODO: magic number
+                    partition["partition_definition"] = partition_definition_dict
+                # "partition_param": ["year", "file_num"],
+                # "partition_delimiter": "-",
+                if "partition_delimiter" in glob_config:
+                    delim = glob_config["partition_delimiter"]
+                else:
+                    delim = "-"
+
+                # process partition_definition into partition id
+                partition_id = []
+                for key in partition["partition_definition"].keys():
+                    partition_id.append(str(partition["partition_definition"][key]))
+                partition_id = delim.join(partition_id)
+                partition["partition_id"] = partition_id
+            return partition
 
     def _get_data_asset_paths(self, data_asset_name):
         """
@@ -154,6 +194,7 @@ class GlobReaderDataConnector(DataConnector):
         Returns:
             paths (list)
         """
+        # TODO : change the naming here to be consistent with the rest <WILL>
         glob_config = self._get_data_asset_config(data_asset_name)
         return glob.glob(os.path.join(self.base_directory, glob_config["glob"]))
 
@@ -202,7 +243,9 @@ class GlobReaderDataConnector(DataConnector):
         )
 
         batch_kwargs["path"] = path
-        batch_kwargs["datasource"] = self._execution_environment.name
+        batch_kwargs[
+            "execution_environment"
+        ] = self._execution_environment.name  # TODO : check if this breaks anything
         return PathBatchKwargs(batch_kwargs)
 
     def _get_data_asset_config(self, data_asset_name):
@@ -216,7 +259,7 @@ class GlobReaderDataConnector(DataConnector):
                 "Unknown asset_name %s" % data_asset_name, batch_kwargs
             )
 
-    def _partitioner(self, path, glob_config):
+    def old_partitioner(self, path, glob_config):
         if "partition_regex" in glob_config:
             match_group_id = glob_config.get("match_group_id", 1)
             matches = re.match(glob_config["partition_regex"], path)
