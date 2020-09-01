@@ -97,6 +97,10 @@ class FilesDataConnector(DataConnector):
         return self._reader_method
 
     @property
+    def partitions(self):
+        return self._partitions
+
+    @property
     def base_directory(self):
         # If base directory is a relative path, interpret it as relative to the data context's
         # context root directory (parent directory of great_expectation dir)
@@ -122,18 +126,29 @@ class FilesDataConnector(DataConnector):
 
         return {"names": [(asset, "path") for asset in known_assets]}
 
-        # TODO: deprecate generator_asset argument
-
-    def get_available_partition_ids(self, data_asset_name=None):
-        # TODO: add the depcrecated option: generator_asset
+    def get_available_partitions(self, data_asset_name=None):
         files_config = self._get_data_asset_config(data_asset_name=data_asset_name)
         batch_paths = self._get_data_asset_paths(data_asset_name=data_asset_name)
-        partition_ids = [
+        partitions = [
             self._partitioner(path, files_config)
             for path in batch_paths
             if self._partitioner(path, files_config) is not None
         ]
+        return partitions
+
+    def get_available_partition_ids(self, data_asset_name=None):
+        partitions = self.get_available_partitions(data_asset_name)
+        partition_ids = []
+        for partition in partitions:
+            partition_ids.append(partition["partition_id"])
         return partition_ids
+
+    def get_available_partition_definitions(self, data_asset_name=None):
+        partitions = self.get_available_partitions(data_asset_name)
+        partition_definitions = []
+        for partition in partitions:
+            partition_definitions.append(partition["partition_definition"])
+        return partition_definitions
 
     def _partitioner(self, path, files_config):
         partitions = {}
@@ -163,7 +178,6 @@ class FilesDataConnector(DataConnector):
                         )
                         print("please check regex")  # TODO: Beef up this error message
 
-                    # build dictionary:
                     # NOTE : matches begin with the full regex match at index=0 and then each matching group
                     # and then each subsequent match in following indices.
                     # this is why partition_definition_inner_dict is loaded with partition_params[i] as key
@@ -200,7 +214,7 @@ class FilesDataConnector(DataConnector):
         """
         # TODO : change the naming here to be consistent with the rest <WILL>
         glob_config = self._get_data_asset_config(data_asset_name)
-        return glob.glob(os.path.join(self.base_directory, glob_config["glob"]))
+        return sorted(glob.glob(os.path.join(self.base_directory, glob_config["glob"])))
 
     def _get_iterator(
         self, data_asset_name, reader_method=None, reader_options=None, limit=None

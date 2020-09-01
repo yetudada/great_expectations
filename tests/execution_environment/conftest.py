@@ -1,19 +1,26 @@
 import pytest
 
 from great_expectations.execution_engine import PandasExecutionEngine
+from great_expectations.execution_environment import ExecutionEnvironment
 
 # @pytest.fixture(scope="module")
 # def execution_environment():
 
 
 @pytest.fixture(scope="module")
-def basic_pandas_execution_engine():
-    return PandasExecutionEngine("basic_pandas_execution_engine")
+def basic_pandas_execution_environment():
+
+    execution_engine = {
+        "class_name": "PandasExecutionEngine",
+        "module_name": "great_expectations.execution_engine.pandas_execution_engine",
+    }
+    execution_environment = ExecutionEnvironment(
+        name="foo", execution_engine=execution_engine
+    )
+    return execution_environment
 
 
 # TODO : add equivalent fixtures for postgresql and sparkdf execution engine
-
-
 # @pytest.fixture(scope="module")
 # def basic_pandas_datasource():
 #    return PandasDatasource("basic_pandas_datasource")

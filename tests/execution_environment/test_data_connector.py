@@ -41,7 +41,7 @@ def test_build_execution_environment():
 
     asset_params = {
         "test_glob": {
-            "glob": "/Users/work/Development/GE_Data/Covid_renamed/*.csv",
+            "glob": "/Users/work/Development/GE_Data/Covid_renamed/*",
             "partition_regex": r"/Users/work/Development/GE_Data/Covid_renamed/file_(.*)_(.*).csv",
             "partition_param": ["year", "file_num"],
             "partition_delimiter": "-",
@@ -65,9 +65,7 @@ def test_build_execution_environment():
 
     my_connector = execution_environment.get_data_connector("covid_files_connector")
 
-    result_we_get = my_connector.get_available_partition_ids(
-        data_asset_name="test_glob"
-    )
+    result_we_get = my_connector.get_available_partitions(data_asset_name="test_glob")
 
     result_we_want = [
         {
@@ -75,16 +73,32 @@ def test_build_execution_environment():
             "partition_id": "2020-1",
         },
         {
-            "partition_definition": {"year": "2020", "file_num": "3"},
-            "partition_id": "2020-3",
-        },
-        {
             "partition_definition": {"year": "2020", "file_num": "2"},
             "partition_id": "2020-2",
         },
+        {
+            "partition_definition": {"year": "2020", "file_num": "3"},
+            "partition_id": "2020-3",
+        },
+    ]
+    assert result_we_get == result_we_want
+
+    result_we_get_def = my_connector.get_available_partition_definitions(
+        data_asset_name="test_glob"
+    )
+    result_we_want_def = [
+        {"year": "2020", "file_num": "1"},
+        {"year": "2020", "file_num": "2"},
+        {"year": "2020", "file_num": "3"},
     ]
 
-    assert result_we_get == result_we_want
+    assert result_we_get_def == result_we_want_def
+
+    result_we_get_id = my_connector.get_available_partition_ids(
+        data_asset_name="test_glob"
+    )
+    result_we_want_id = ["2020-1", "2020-2", "2020-3"]
+    assert result_we_get_id == result_we_want_id
 
 
 # def test_data_connector():
