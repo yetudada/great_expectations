@@ -21,14 +21,11 @@ from great_expectations.dataset.util import (
     is_valid_continuous_partition_object,
     validate_distribution_parameters,
 )
-from great_expectations.execution_environment.types import (
-    PathBatchKwargs,
-    S3BatchKwargs,
-)
+from great_expectations.execution_environment.types import (PathBatchSpec, S3BatchSpec,)
 
 from ..core.batch import Batch
 from ..datasource.pandas_datasource import HASH_THRESHOLD
-from ..exceptions import BatchKwargsError
+from ..exceptions import BatchKwargsError, BatchSpecError
 from ..execution_environment.types import BatchMarkers
 from ..execution_environment.util import S3Url, hash_pandas_dataframe
 from .execution_engine import ExecutionEngine
@@ -78,7 +75,9 @@ class MetaPandasExecutionEngine(ExecutionEngine):
         ):
 
             if result_format is None:
-                result_format = self.default_expectation_args["result_format"]
+                result_format = self.default_expectation_args[
+                    "result_format"
+                ]  # TODO: should this be in batch_params?
 
             result_format = parse_result_format(result_format)
             if row_condition:
@@ -88,11 +87,11 @@ class MetaPandasExecutionEngine(ExecutionEngine):
                         " and must be 'python' or 'pandas'"
                     )
                 else:
-                    data = self.query(
+                    data = self.dataframe.query(
                         row_condition, parser=condition_parser
                     ).reset_index(drop=True)
             else:
-                data = self
+                data = self.dataframe
 
             series = data[column]
             if func.__name__ in [
@@ -199,10 +198,12 @@ class MetaPandasExecutionEngine(ExecutionEngine):
         ):
 
             if result_format is None:
-                result_format = self.default_expectation_args["result_format"]
+                result_format = self.default_expectation_args[
+                    "result_format"
+                ]  # TODO: should this be in batch_params?
 
             if row_condition:
-                self = self.query(row_condition).reset_index(drop=True)
+                self = self.dataframe.query(row_condition).reset_index(drop=True)
 
             series_A = self[column_A]
             series_B = self[column_B]
@@ -303,10 +304,12 @@ class MetaPandasExecutionEngine(ExecutionEngine):
         ):
 
             if result_format is None:
-                result_format = self.default_expectation_args["result_format"]
+                result_format = self.default_expectation_args[
+                    "result_format"
+                ]  # TODO: should this be in batch_params?
 
             if row_condition:
-                self = self.query(row_condition).reset_index(drop=True)
+                self = self.dataframe.query(row_condition).reset_index(drop=True)
 
             test_df = self[column_list]
 
@@ -394,9 +397,9 @@ Notes:
     # case is that we want the former, but also want to re-initialize these values to None so we don't
     # get an attribute error when trying to access them (I think this could be done in __finalize__?)
     _internal_names = pd.DataFrame._internal_names + [
-        "_batch_kwargs",
+        "_batch_spec",
         "_batch_markers",
-        "_batch_parameters",
+        "_batch_definition",
         "_batch_id",
         "_expectation_suite",
         "_config",
@@ -406,12 +409,13 @@ Notes:
     ]
     _internal_names_set = set(_internal_names)
 
-    recognized_batch_parameters = {
+    recognized_batch_definition_keys = {
+        "limit"
+    }
+
+    recognized_batch_spec_defaults = {
         "reader_method",
         "reader_options",
-        "limit",
-        "dataset_options",
-        "data_connector",
     }
 
     # We may want to expand or alter support for subclassing dataframes in the future:
@@ -443,8 +447,8 @@ Notes:
             "discard_subset_failing_expectations", False
         )
 
-    def load_batch(self, batch_parameters):
-        execution_environment_name = batch_parameters.get("execution_environment")
+    def load_batch(self, batch_definition, in_memory_dataset=None):
+        execution_environment_name = batch_definition.get("execution_environment")
         execution_environment = self._data_context.get_execution_environment(
             execution_environment_name
         )
@@ -458,44 +462,44 @@ Notes:
             }
         )
 
-        data_connector_name = batch_parameters.get("data_connector")
-        # TODO: Is it ok that this in_memory_dataframe is a batch_parameter and not top level?
-        if batch_parameters.get("in_memory_dataframe") is not None:
-            if batch_parameters.get("data_asset_name") and batch_parameters.get(
+        data_connector_name = batch_definition.get("data_connector")
+        # TODO: Is it ok that this in_memory_dataset is a batch_definition key and not top level?
+        if in_memory_dataset is not None:
+            if batch_definition.get("data_asset_name") and batch_definition.get(
                 "partition_id"
             ):
-                df = batch_parameters.get("in_memory_dataframe")
-                # TODO: when creating an expectation suite directly onto a pandas df with the old API, batch_kwargs
-                #  consist of a blank dictionary. When creating a batch from a directly passed on df, the batch_kwargs
-                #  would look like this {"datasource":"datasource_name", "dataset": df}. Assuming that we don't want to
-                #  include the actual data in the batch_kwargs, we can either maintain a blank dictionary for
-                #  batch_kwargs, or pass in datasource and something generic for dataset like "in_memory_dataframe".
-                batch_kwargs = {}
+                df = in_memory_dataset
+                batch_spec = {}
+                batch_definition["data_connector"] = "dummy_data_connector"
             else:
                 raise ValueError(
-                    "To pass an in_memory_dataframe, you must also pass a data_asset_name "
+                    "To pass an in_memory_dataset, you must also pass a data_asset_name "
                     "and partition_id"
                 )
         else:
             data_connector = execution_environment.get_data_connector(
                 data_connector_name
             )
-
-            batch_kwargs = data_connector.build_batch_kwargs(**batch_parameters)
+            if data_connector == "dummy_data_connector":
+                raise ValueError(
+                    "No in_memory_dataset found. To use the dummy_data_connector, please ensure that you"
+                    "are passing a dataset to load_batch()"
+                )
+            batch_spec = data_connector.build_batch_spec(batch_definition=batch_definition)
 
             # We will use and manipulate reader_options along the way
-            reader_options = batch_kwargs.get("reader_options", {})
+            reader_options = batch_spec.get("reader_options", {})
 
-            if isinstance(batch_kwargs, PathBatchKwargs):
-                path = batch_kwargs["path"]
-                reader_method = batch_kwargs.get("reader_method")
+            if isinstance(batch_spec, PathBatchSpec):
+                path = batch_spec["path"]
+                reader_method = batch_spec.get("reader_method")
                 reader_fn = self._get_reader_fn(reader_method, path)
                 df = reader_fn(path, **reader_options)
 
-            elif isinstance(batch_kwargs, S3BatchKwargs):
-                s3_object = data_connector.get_s3_object(batch_kwargs=batch_kwargs)
-                reader_method = batch_kwargs.get("reader_method")
-                reader_fn = self._get_reader_fn(reader_method, s3_object.key)
+            elif isinstance(batch_spec, S3BatchSpec):
+                url, s3_object = data_connector.get_s3_object(batch_spec=batch_spec)
+                reader_method = batch_spec.get("reader_method")
+                reader_fn = self._get_reader_fn(reader_method, url.key)
                 df = reader_fn(
                     StringIO(
                         s3_object["Body"]
@@ -510,11 +514,11 @@ Notes:
                 #
                 #     s3 = boto3.client("s3", **self._boto3_options)
                 # except ImportError:
-                #     raise BatchKwargsError(
-                #         "Unable to load boto3 client to read s3 asset.", batch_kwargs
+                #     raise BatchSpecError(
+                #         "Unable to load boto3 client to read s3 asset.", batch_spec
                 #     )
-                # raw_url = batch_kwargs["s3"]
-                # reader_method = batch_kwargs.get("reader_method")
+                # raw_url = batch_spec["s3"]
+                # reader_method = batch_spec.get("reader_method")
                 # url = S3Url(raw_url)
                 # logger.debug(
                 #     "Fetching s3 object. Bucket: %s Key: %s" % (url.bucket, url.key)
@@ -530,43 +534,43 @@ Notes:
                 #     **reader_options
                 # )
 
-            elif "dataset" in batch_kwargs and isinstance(
-                batch_kwargs["dataset"], (pd.DataFrame, pd.Series)
+            elif "dataset" in batch_spec and isinstance(
+                batch_spec["dataset"], (pd.DataFrame, pd.Series)
             ):
-                df = batch_kwargs.get("dataset")
-                # We don't want to store the actual dataframe in kwargs; copy the remaining batch_kwargs
-                batch_kwargs = {
-                    k: batch_kwargs[k] for k in batch_kwargs if k != "dataset"
+                df = batch_spec.get("dataset")
+                # We don't want to store the actual dataframe in kwargs; copy the remaining batch_spec
+                batch_spec = {
+                    k: batch_spec[k] for k in batch_spec if k != "dataset"
                 }
-                batch_kwargs["PandasInMemoryDF"] = True
-                batch_kwargs["ge_batch_id"] = str(uuid.uuid1())
+                batch_spec["PandasInMemoryDF"] = True
+                batch_spec["ge_batch_id"] = str(uuid.uuid1())
 
             else:
-                raise BatchKwargsError(
-                    "Invalid batch_kwargs: path, s3, or df is required for a PandasDatasource",
-                    batch_kwargs,
+                raise BatchSpecError(
+                    "Invalid batch_spec: path, s3, or df is required for a PandasDatasource",
+                    batch_spec,
                 )
 
         if df.memory_usage().sum() < HASH_THRESHOLD:
             batch_markers["pandas_data_fingerprint"] = hash_pandas_dataframe(df)
 
         self._batch = Batch(
-            execution_environment_name=batch_parameters.get("execution_environment"),
-            batch_kwargs=batch_kwargs,
+            execution_environment_name=batch_definition.get("execution_environment"),
+            batch_spec=batch_spec,
             data=df,
-            batch_parameters=batch_parameters,
+            batch_definition=batch_definition,
             batch_markers=batch_markers,
             data_context=self._data_context,
         )
-        self._batch_kwargs = batch_kwargs
-        self._batch_parameters = batch_parameters
+        self._batch_spec = batch_spec
+        self._batch_definition = batch_definition
         self._batch_markers = batch_markers
 
     @property
     def dataframe(self):
         if not self.batch:
-            if self._batch_parameters:
-                self.load_batch(self._batch_parameters)
+            if self._batch_definition:
+                self.load_batch(self._batch_definition)
             else:
                 raise ValueError(
                     "Batch has not been loaded and no batch parameters were found. Please run "
@@ -588,7 +592,7 @@ Notes:
 
         """
         if reader_method is None and path is None:
-            raise BatchKwargsError(
+            raise BatchSpecError(
                 "Unable to determine pandas reader function without reader_method or path.",
                 {"reader_method": reader_method},
             )
@@ -607,7 +611,7 @@ Notes:
                 reader_fn = partial(reader_fn, **reader_options)
             return reader_fn
         except AttributeError:
-            raise BatchKwargsError(
+            raise BatchSpecError(
                 "Unable to find reader_method %s in pandas." % reader_method,
                 {"reader_method": reader_method},
             )
@@ -632,66 +636,60 @@ Notes:
                 "reader_options": {"compression": "gzip"},
             }
 
-        raise BatchKwargsError(
+        raise BatchSpecError(
             "Unable to determine reader method from path: %s" % path, {"path": path}
         )
 
-    def process_batch_parameters(
-        self, reader_method=None, reader_options=None, limit=None, dataset_options=None,
+    def process_batch_definition(
+        self,
+        batch_definition,
+        batch_spec
     ):
-        batch_parameters = self.default_batch_parameters
-
-        # Then update with any locally-specified reader options
-        if reader_options:
-            if not batch_parameters.get("reader_options"):
-                batch_parameters["reader_options"] = dict()
-            batch_parameters["reader_options"].update(reader_options)
+        limit = batch_definition.get("limit")
 
         if limit is not None:
-            if not batch_parameters.get("reader_options"):
-                batch_parameters["reader_options"] = dict()
-            batch_parameters["reader_options"]["nrows"] = limit
+            if not batch_spec.get("reader_options"):
+                batch_spec["reader_options"] = dict()
+            batch_spec["reader_options"]["nrows"] = limit
 
-        if reader_method is not None:
-            batch_parameters["reader_method"] = reader_method
+        # TODO: Make sure dataset_options are accounted for in __init__ of ExecutionEngine
+        # if dataset_options is not None:
+        #     # Then update with any locally-specified reader options
+        #     if not batch_parameters.get("dataset_options"):
+        #         batch_parameters["dataset_options"] = dict()
+        #     batch_parameters["dataset_options"].update(dataset_options)
 
-        if dataset_options is not None:
-            # Then update with any locally-specified reader options
-            if not batch_parameters.get("dataset_options"):
-                batch_parameters["dataset_options"] = dict()
-            batch_parameters["dataset_options"].update(dataset_options)
-
-        return batch_parameters
+        return batch_spec
 
     def get_row_count(self):
-        return self.shape[0]
+        return self.dataframe.shape[0]
 
     def get_column_count(self):
-        return self.shape[1]
+        return self.dataframe.shape[1]
 
     def get_table_columns(self) -> List[str]:
-        return list(self.batch.data.columns)
+        return list(self.dataframe.columns)
 
     def get_column_sum(self, column):
-        return self[column].sum()
+        return self.dataframe[column].sum()
 
     def get_column_max(self, column, parse_strings_as_datetimes=False):
-        temp_column = self[column].dropna()
+        temp_column = self.dataframe[column].dropna()
         if parse_strings_as_datetimes:
             temp_column = temp_column.map(parse)
         return temp_column.max()
 
     def get_column_min(self, column, parse_strings_as_datetimes=False):
-        temp_column = self[column].dropna()
+        temp_column = self.dataframe[column].dropna()
         if parse_strings_as_datetimes:
             temp_column = temp_column.map(parse)
         return temp_column.min()
 
     def get_column_mean(self, column):
-        return self[column].mean()
+        return self.dataframe[column].mean()
 
     def get_column_nonnull_count(self, column):
-        series = self[column]
+        series = self.dataframe[column]
         null_indexes = series.isnull()
         nonnull_values = series[null_indexes == False]
         return len(nonnull_values)
@@ -703,14 +701,14 @@ Notes:
             raise ValueError(
                 "collate parameter is not supported in PandasExecutionEngine"
             )
-        counts = self[column].value_counts()
+        counts = self.dataframe[column].value_counts()
         if sort == "value":
             try:
                 counts.sort_index(inplace=True)
             except TypeError:
                 # Having values of multiple types in a object dtype column (e.g., strings and floats)
                 # raises a TypeError when the sorting method performs comparisons.
-                if self[column].dtype == object:
+                if self.dataframe[column].dtype == object:
                     counts.index = counts.index.astype(str)
                     counts.sort_index(inplace=True)
         elif sort == "counts":
@@ -720,26 +718,28 @@ Notes:
         return counts
 
     def get_column_unique_count(self, column):
-        return self.get_column_value_counts(column).shape[0]
+        return self.dataframe.get_column_value_counts(column).shape[0]
 
     def get_column_modes(self, column):
-        return list(self[column].mode().values)
+        return list(self.dataframe[column].mode().values)
 
     def get_column_median(self, column):
-        return self[column].median()
+        return self.dataframe[column].median()
 
     def get_column_quantiles(self, column, quantiles, allow_relative_error=False):
         if allow_relative_error is not False:
             raise ValueError(
                 "PandasExecutionEngine does not support relative error in column quantiles."
             )
-        return self[column].quantile(quantiles, interpolation="nearest").tolist()
+        return (
+            self.dataframe[column].quantile(quantiles, interpolation="nearest").tolist()
+        )
 
     def get_column_stdev(self, column):
-        return self[column].std()
+        return self.dataframe[column].std()
 
     def get_column_hist(self, column, bins):
-        hist, bin_edges = np.histogram(self[column], bins, density=False)
+        hist, bin_edges = np.histogram(self.dataframe[column], bins, density=False)
         return list(hist)
 
     def get_column_count_in_range(
@@ -751,7 +751,7 @@ Notes:
         if min_val is not None and max_val is not None and min_val > max_val:
             raise ValueError("Min value must be <= to max value")
 
-        result = self[column]
+        result = self.dataframe[column]
         if min_val is not None:
             if strict_min:
                 result = result[result > min_val]

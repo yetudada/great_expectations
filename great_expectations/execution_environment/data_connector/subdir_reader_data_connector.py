@@ -2,11 +2,11 @@ import logging
 import os
 import warnings
 
-from great_expectations.exceptions import BatchKwargsError
+from great_expectations.exceptions import BatchSpecError
 from great_expectations.execution_environment.data_connector.data_connector import (
     DataConnector,
 )
-from great_expectations.execution_environment.types import PathBatchKwargs
+from great_expectations.execution_environment.types import PathBatchSpec
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ KNOWN_EXTENSIONS = [
 
 
 class SubdirReaderDataConnector(DataConnector):
-    """The SubdirReaderDataConnector inspects a filesystem and produces path-based batch_kwargs.
+    """The SubdirReaderDataConnector inspects a filesystem and produces path-based batch_spec.
 
     SubdirReaderDataConnector recognizes data assets using two criteria:
       - for files directly in 'base_directory' with recognized extensions (.csv, .tsv, .parquet, .xls, .xlsx, .json),
@@ -33,15 +33,18 @@ class SubdirReaderDataConnector(DataConnector):
 
     SubdirReaderDataConnector sees all files inside a directory of base_directory as batches of one datasource.
 
-    SubdirReaderDataConnector can also include configured reader_options which will be added to batch_kwargs generated
+    SubdirReaderDataConnector can also include configured reader_options which will be added to batch_spec generated
     by this generator.
     """
 
     _default_reader_options = {}
-    recognized_batch_parameters = {
+    recognized_batch_definition_keys = {
         "data_asset_name",
         "partition_id",
         "execution_environment",
+        "data_connector",
+        "batch_spec_passthrough",
+        "limit"
     }
 
     def __init__(
@@ -52,8 +55,13 @@ class SubdirReaderDataConnector(DataConnector):
         reader_options=None,
         known_extensions=None,
         reader_method=None,
+        batch_definition_defaults=None
     ):
-        super().__init__(name, execution_environment=execution_environment)
+        super().__init__(
+            name,
+            execution_environment=execution_environment,
+            batch_definition_defaults=batch_definition_defaults
+        )
         if reader_options is None:
             reader_options = self._default_reader_options
 
@@ -128,26 +136,28 @@ class SubdirReaderDataConnector(DataConnector):
             )
         ]
 
-    def _build_batch_kwargs(self, batch_parameters):
+    def _build_batch_spec(self, batch_definition, batch_spec=None):
         """
 
         Args:
-            batch_parameters:
+            batch_definition:
 
         Returns:
-            batch_kwargs
+            batch_spec
 
         """
+        batch_spec = batch_spec or {}
+
         try:
-            data_asset_name = batch_parameters.pop("data_asset_name")
+            data_asset_name = batch_definition.pop("data_asset_name")
         except KeyError:
-            raise BatchKwargsError(
-                "Unable to build BatchKwargs: no data_asset_name provided in batch_parameters.",
-                batch_kwargs=batch_parameters,
+            raise BatchSpecError(
+                "Unable to build BatchKwargs: no data_asset_name provided in batch_definition.",
+                batch_spec=batch_definition,
             )
 
-        if "partition_id" in batch_parameters:
-            partition_id = batch_parameters.pop("partition_id")
+        if "partition_id" in batch_definition:
+            partition_id = batch_definition.pop("partition_id")
             # Find the path
             path = None
             for extension in self.known_extensions:
@@ -178,16 +188,22 @@ class SubdirReaderDataConnector(DataConnector):
                         )
 
             if path is None:
-                raise BatchKwargsError(
+                raise BatchSpecError(
                     "Unable to build batch kwargs from for asset '%s'"
                     % data_asset_name,
-                    batch_parameters,
+                    batch_definition,
                 )
-            return self._build_batch_kwargs_from_path(path, **batch_parameters)
+            return self._build_batch_spec_from_path(
+                path,
+                batch_definition,
+                batch_spec
+            )
 
         else:
-            return self.yield_batch_kwargs(
-                data_asset_name=data_asset_name, **batch_parameters
+            return self.yield_batch_spec(
+                data_asset_name=data_asset_name,
+                batch_definition=batch_definition,
+                batch_spec=batch_spec
             )
 
     def _get_valid_file_options(self, base_directory=None):
@@ -215,7 +231,12 @@ class SubdirReaderDataConnector(DataConnector):
                         valid_options.append((file_option, "directory"))
         return valid_options
 
-    def _get_iterator(self, data_asset_name, reader_options=None, limit=None, **kwargs):
+    def _get_iterator(
+        self,
+        data_asset_name,
+        batch_definition,
+        batch_spec
+    ):
         logger.debug(
             "Beginning SubdirReaderDataConnector _get_iterator for data_asset_name: %s"
             % data_asset_name
@@ -226,20 +247,22 @@ class SubdirReaderDataConnector(DataConnector):
             subdir_options = os.listdir(
                 os.path.join(self.base_directory, data_asset_name)
             )
-            batches = []
+            path_list = []
             for file_option in subdir_options:
                 for extension in self.known_extensions:
                     if file_option.endswith(extension) and not file_option.startswith(
                         "."
                     ):
-                        batches.append(
+                        path_list.append(
                             os.path.join(
                                 self.base_directory, data_asset_name, file_option
                             )
                         )
 
-            return self._build_batch_kwargs_path_iter(
-                batches, reader_options=reader_options, limit=limit
+            return self._build_batch_spec_path_iter(
+                path_list,
+                batch_definition,
+                batch_spec
             )
         else:
             for extension in self.known_extensions:
@@ -247,37 +270,43 @@ class SubdirReaderDataConnector(DataConnector):
                 if os.path.isfile(path):
                     return iter(
                         [
-                            self._build_batch_kwargs_from_path(
-                                path, reader_options=reader_options, limit=limit
+                            self._build_batch_spec_from_path(
+                                path,
+                                batch_definition,
+                                batch_spec
                             )
                         ]
                     )
             # If we haven't returned yet, raise
-            raise BatchKwargsError(
+            raise BatchSpecError(
                 "No valid files found when searching {:s} using configured known_extensions: "
                 "{:s} ".format(
                     os.path.join(self.base_directory, data_asset_name),
                     ", ".join(map(str, self.known_extensions)),
                 ),
-                batch_kwargs=PathBatchKwargs(
+                batch_spec=PathBatchSpec(
                     path=os.path.join(self.base_directory, data_asset_name)
                 ),
             )
 
-    def _build_batch_kwargs_path_iter(self, path_list, reader_options=None, limit=None):
+    def _build_batch_spec_path_iter(self, path_list, batch_definition, batch_spec):
         for path in path_list:
-            yield self._build_batch_kwargs_from_path(
-                path, reader_options=reader_options, limit=limit
+            yield self._build_batch_spec_from_path(
+                path,
+                batch_definition,
+                batch_spec
             )
 
-    def _build_batch_kwargs_from_path(
-        self, path, reader_method=None, reader_options=None, limit=None
+    def _build_batch_spec_from_path(
+        self,
+        path,
+        batch_definition,
+        batch_spec
     ):
-        batch_kwargs = self._execution_environment.execution_engine.process_batch_parameters(
-            reader_method=reader_method or self.reader_method,
-            reader_options=reader_options or self.reader_options,
-            limit=limit,
+        batch_spec["path"] = path
+        batch_spec = self._execution_environment.execution_engine.process_batch_definition(
+            batch_definition=batch_definition,
+            batch_spec=batch_spec
         )
-        batch_kwargs["path"] = path
-        batch_kwargs["execution_environment"] = self._execution_environment.name
-        return PathBatchKwargs(batch_kwargs)
+
+        return PathBatchSpec(batch_spec)

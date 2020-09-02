@@ -1013,36 +1013,40 @@ class BaseDataContext(object):
         execution_environment_obj = self.get_execution_environment(
             execution_environment
         )
-        data_connector_obj = execution_environment_obj.get_data_connector(
-            data_connector
+        batch_kwargs = execution_environment_obj.build_batch_kwargs(
+            batch_kwargs_generator=batch_kwargs_generator,
+            data_asset_name=data_asset_name,
+            partition_id=partition_id,
+            **kwargs,
         )
-        batch_kwargs = data_connector_obj.build_batch_kwargs(
-            data_asset_name, partition_id
-        )
-
-        # batch_kwargs = execution_environment_obj.build_batch_kwargs(
-        #    batch_kwargs_generator=batch_kwargs_generator,
-        #    data_asset_name=data_asset_name,
-        #    partition_id=partition_id,
-        #    **kwargs,
-        # )
         return batch_kwargs
 
     # WIP new get_batch
-    def _get_batch(self, batch_parameters: dict,) -> ExecutionEngine:
+    def _get_batch(
+        self,
+        batch_definition: dict,
+        in_memory_dataset: any = None,  # TODO: should this be any to accommodate different engines?
+    ) -> ExecutionEngine:
         execution_environment = self.get_execution_environment(
-            batch_parameters.get("execution_environment")
+            batch_definition.get("execution_environment")
         )
-        return execution_environment.get_batch(batch_parameters,)
+        return execution_environment.get_batch(
+            batch_definition=batch_definition, in_memory_dataset=in_memory_dataset
+        )
 
     def get_validator(
-        self, batch_parameters, expectation_suite_name: Union[str, ExpectationSuite],
+        self,
+        batch_definition,
+        expectation_suite_name: Union[str, ExpectationSuite],
+        in_memory_dataset: any = None,  # TODO: should this be any to accommodate different engines?
     ):
         execution_environment = self.get_execution_environment(
-            batch_parameters.get("execution_environment")
+            batch_definition.get("execution_environment")
         )
         return execution_environment.get_validator(
-            batch_parameters, expectation_suite_name
+            batch_definition=batch_definition,
+            expectation_suite_name=expectation_suite_name,
+            in_memory_dataset=in_memory_dataset,
         )
 
     def get_batch(
@@ -1301,29 +1305,27 @@ class BaseDataContext(object):
         )
         return generator
 
-    def add_data_connector(
-        self, execution_environment_name, data_connector_name, class_name, **kwargs
-    ):
-        """
-        Add a data connector to the named execution_environment, using the provided
-        configuration.
-
-        Args:
-            execution_environment_name: name of execution_environment to which to add the new data connector
-            data_connector_name: name of the data_connector to add
-            class_name: class of the data connector to add
-            **kwargs: data connector configuration, provided as kwargs
-
-        Returns:
-
-        """
-        execution_environment_obj = self.get_execution_environment(
-            execution_environment_name
-        )
-        data_connector = execution_environment_obj.add_data_connector(
-            name=data_connector_name, class_name=class_name, **kwargs
-        )
-        return data_connector
+    # def add_data_connector(
+    #     self, execution_environment_name, data_connector_name, class_name, **kwargs
+    # ):
+    #     """
+    #     Add a data connector to the named execution_environment, using the provided
+    #     configuration.
+    #
+    #     Args:
+    #         execution_environment_name: name of execution_environment to which to add the new data connector
+    #         data_connector_name: name of the data_connector to add
+    #         class_name: class of the data connector to add
+    #         **kwargs: data connector configuration, provided as kwargs
+    #
+    #     Returns:
+    #
+    #     """
+    #     execution_environment_obj = self.get_execution_environment(execution_environment_name)
+    #     data_connector = execution_environment_obj.add_data_connector(
+    #         name=data_connector_name, class_name=class_name, **kwargs
+    #     )
+    #     return data_connector_name
 
     def get_config(self):
         return self._project_config
