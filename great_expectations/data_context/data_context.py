@@ -60,6 +60,7 @@ from great_expectations.data_context.util import (
 )
 from great_expectations.dataset import Dataset
 from great_expectations.datasource import Datasource
+from great_expectations.marshmallow__shade import ValidationError
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfiler
 from great_expectations.render.renderer.site_builder import SiteBuilder
 from great_expectations.validation_operators import ValidationOperator

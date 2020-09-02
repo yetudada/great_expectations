@@ -7,15 +7,6 @@ from inspect import getfullargspec
 from io import StringIO
 from typing import Callable, Union
 
-from marshmallow import (
-    INCLUDE,
-    Schema,
-    ValidationError,
-    fields,
-    post_dump,
-    post_load,
-    validates_schema,
-)
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 
@@ -28,6 +19,15 @@ from great_expectations.data_context.store.util import (
 )
 from great_expectations.data_context.templates import get_templated_yaml
 from great_expectations.data_context.util import substitute_config_variable
+from great_expectations.marshmallow__shade import (
+    INCLUDE,
+    Schema,
+    ValidationError,
+    fields,
+    post_dump,
+    post_load,
+    validates_schema,
+)
 from great_expectations.types import DictDot
 from great_expectations.types.configurations import ClassConfigSchema
 from great_expectations.util import (
