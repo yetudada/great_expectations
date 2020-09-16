@@ -62,6 +62,28 @@ def build_tuple_s3_store_backend(
     )
 
 
+def build_tuple_gcs_store_backend(
+    bucket: str,
+    *,
+    module_name: str = "great_expectations.data_context.store",
+    class_name: str = "TupleGCSStoreBackend",
+    **kwargs,
+):
+    logger.debug(
+        f"""Starting data_context/store/util.py#build_tuple_gcs_store_backend using bucket: {bucket}
+        """
+    )
+    store_config: dict = {
+        "module_name": module_name,
+        "class_name": class_name,
+        "bucket": bucket,
+    }
+    store_config.update(**kwargs)
+    return build_store_from_config(
+        store_config=store_config, module_name=module_name, runtime_environment=None,
+    )
+
+
 def build_configuration_store(
     store_name: str,
     store_backend,

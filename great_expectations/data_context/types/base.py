@@ -15,6 +15,7 @@ from great_expectations.data_context.store.util import (
     build_configuration_store,
     build_store_from_config,
     build_tuple_filesystem_store_backend,
+    build_tuple_gcs_store_backend,
     build_tuple_s3_store_backend,
 )
 from great_expectations.data_context.templates import get_templated_yaml
@@ -241,12 +242,12 @@ class DataContextConfig(BaseConfig):
         project_config_prefix: str = None,
         project_config_kwargs: dict = None,
         slack_webhook: str = None,
-        show_how_to_buttons: bool = None,
-        show_cta_footer: bool = None,
-        include_profiling: bool = None,
+        show_how_to_buttons: bool = True,
+        show_cta_footer: bool = True,
+        include_profiling: bool = True,
         runtime_environment: dict = None,
-        overwrite_existing: bool = None,
-        usage_statistics_enabled: bool = None,
+        overwrite_existing: bool = False,
+        usage_statistics_enabled: bool = True,
     ):
         kwargs_callee: dict
 
@@ -262,10 +263,22 @@ class DataContextConfig(BaseConfig):
                 inplace=False,
             )
             return func_callee(**kwargs_callee)
+        elif backend_ecosystem == "gcp":
+            func_callee: Callable = create_standard_gcs_backed_project_config
+            # Gather the call arguments of the present function and package the subset thereof as call arguments for the
+            # downstream ("func_callee") function (by taking out the "backend_ecosystem" argument).
+            # Leave the "None" values in the call arguments.
+            kwargs_callee = filter_properties_dict(
+                properties=get_currently_executing_function_call_arguments(),
+                delete_fields=["backend_ecosystem"],
+                clean_empty=False,
+                inplace=False,
+            )
+            return func_callee(**kwargs_callee)
         else:
             raise ge_exceptions.DataContextError(
                 f"""
-Only "aws" is currently supported as the backend ecosystem ("{backend_ecosystem}" is not currently supported).
+Only "aws" and "gcp" is currently supported as the backend ecosystem ("{backend_ecosystem}" is not currently supported).
                 """
             )
 
@@ -987,7 +1000,7 @@ def create_using_s3_backend(func: Callable = None,) -> Callable:
     application-level stores (Expectation Suites, Validations, Evaluation Parameters, and Data Docs).
 
     The decorator serves two key purposes:
-    1) Insures that the required essential parts of the project configuration are set up properly; and
+    1) Ensures that the required essential parts of the project configuration are set up properly; and
     2) Enables the user (developer) to focus on customizing the project configuration to their respective requirements.
     """
 
@@ -1020,6 +1033,129 @@ def create_using_s3_backend(func: Callable = None,) -> Callable:
         return project_config_store.load_configuration()
 
     return initialize_using_s3_backend_wrapped_method
+
+
+# noinspection PyMethodParameters
+def create_using_gcs_backend(func: Callable = None,) -> Callable:
+    """
+    A decorator for loading or creating data context with GCS serving as the backend store for all
+    application-level stores (Expectation Suites, Validations, Evaluation Parameters, and Data Docs).
+
+    The decorator serves two key purposes:
+    1) Ensures that the required essential parts of the project configuration are set up properly; and
+    2) Enables the user (developer) to focus on customizing the project configuration to their respective requirements.
+    """
+
+    # noinspection SpellCheckingInspection
+    @wraps(func)
+    def initialize_using_gcs_backend_wrapped_method(**kwargs):
+        kwargs_callee: dict
+
+        func_callee: Callable = create_gcs_backed_project_config
+        # noinspection SpellCheckingInspection
+        argspec: list = getfullargspec(func_callee)[0]
+        # Gather the call arguments of the present function and package the subset thereof as call arguments for the
+        # downstream ("func_callee") function (as defined by its own, "argspec", call arguments).
+        # Leave the "None" values in the call arguments.
+        kwargs_callee = filter_properties_dict(
+            properties=kwargs, keep_fields=argspec, clean_empty=False, inplace=False
+        )
+        working_project_config_info: dict = func_callee(**kwargs_callee)
+
+        project_config_store = working_project_config_info["project_config_store"]
+        new_project_config_created: bool = working_project_config_info[
+            "new_project_config_created"
+        ]
+
+        if new_project_config_created:
+            kwargs_callee = deepcopy(kwargs)
+            kwargs_callee.update({"project_config_store": project_config_store})
+            return func(**kwargs_callee)
+
+        return project_config_store.load_configuration()
+
+    return initialize_using_gcs_backend_wrapped_method
+
+
+def create_gcs_backed_project_config(
+    expectations_store_bucket: str,
+    expectations_store_prefix: str,
+    expectations_store_name: str,
+    expectations_store_kwargs: dict = None,
+    project_config_bucket: str = None,
+    project_config_prefix: str = None,
+    project_config_kwargs: dict = None,
+    overwrite_existing: bool = False,
+    usage_statistics_enabled: bool = True,
+):
+    if expectations_store_kwargs is None:
+        expectations_store_kwargs = {}
+    ge_id_config_bucket: str = expectations_store_bucket
+    ge_id_config_prefix: str = expectations_store_prefix
+    ge_id_config_kwargs: dict = expectations_store_kwargs
+    if project_config_bucket is None:
+        project_config_bucket = expectations_store_bucket
+    if project_config_prefix is None:
+        project_config_prefix = expectations_store_prefix
+    if project_config_kwargs is None:
+        project_config_kwargs = expectations_store_kwargs
+
+    store_config: dict = {
+        "bucket": project_config_bucket,
+        "prefix": project_config_prefix,
+    }
+    store_config.update(**project_config_kwargs)
+    gcs_store_backend_obj = build_tuple_gcs_store_backend(**store_config)
+    project_config_store = build_configuration_store(
+        configuration_class=DataContextConfig,
+        store_name=GE_PROJECT_CONFIGURATION_STORE_NAME,
+        store_backend=gcs_store_backend_obj,
+        overwrite_existing=True,
+    )
+
+    project_config: Union[DataContextConfig, None]
+
+    try:
+        # noinspection PyTypeChecker
+        project_config = project_config_store.load_configuration()
+    except ge_exceptions.ConfigNotFoundError:
+        project_config = None
+
+    new_project_config_created: bool = False
+
+    if overwrite_existing or project_config is None:
+        project_config = create_minimal_project_config(
+            usage_statistics_enabled=usage_statistics_enabled
+        )
+        new_project_config_created = True
+
+    validate_project_config(project_config=project_config)
+
+    compute_and_persist_to_s3_data_context_id(
+        project_config=project_config,
+        bucket=ge_id_config_bucket,
+        prefix=ge_id_config_prefix,
+        runtime_environment=None,
+        **ge_id_config_kwargs,
+    )
+
+    store_config: dict = {
+        "bucket": expectations_store_bucket,
+        "prefix": expectations_store_prefix,
+    }
+    store_config.update(**expectations_store_kwargs)
+    s3_store_backend_obj = build_tuple_gcs_store_backend(**store_config)
+    project_config.add_expectations_store(
+        name=expectations_store_name, store_backend=s3_store_backend_obj
+    )
+    project_config.expectations_store_name = expectations_store_name
+
+    project_config_store.save_configuration(configuration=project_config)
+
+    return {
+        "project_config_store": project_config_store,
+        "new_project_config_created": new_project_config_created,
+    }
 
 
 def create_s3_backed_project_config(
@@ -1106,6 +1242,20 @@ def create_s3_backed_project_config(
 # noinspection pyargumentlist,SpellCheckingInspection
 @create_using_s3_backend
 def create_standard_s3_backed_project_config(**kwargs,):
+    func_callee: Callable = build_s3_backed_project_config
+    # noinspection SpellCheckingInspection
+    argspec: list = getfullargspec(func_callee)[0]
+    # Starting with the call arguments of the present function ("kwargs"), package the subset thereof as call arguments
+    # for the downstream ("func_callee") function (as defined by its own, "argspec", call arguments).
+    # Leave the "None" values in the call arguments.
+    filter_properties_dict(
+        properties=kwargs, keep_fields=argspec, clean_empty=False, inplace=True
+    )
+    return func_callee(**kwargs)
+
+
+@create_using_gcs_backend
+def create_standard_gcs_backed_project_config(**kwargs,):
     func_callee: Callable = build_s3_backed_project_config
     # noinspection SpellCheckingInspection
     argspec: list = getfullargspec(func_callee)[0]
@@ -1248,6 +1398,26 @@ def compute_and_persist_to_s3_data_context_id(
     s3_store_backend_obj = build_tuple_s3_store_backend(**store_config)
     project_config.anonymous_usage_statistics.data_context_id = compute_and_persist_data_context_id(
         store_backend=s3_store_backend_obj,
+        project_config=project_config,
+        runtime_environment=runtime_environment,
+    )
+
+
+def compute_and_persist_to_gcs_data_context_id(
+    project_config: DataContextConfig,
+    bucket: str = None,
+    prefix: str = None,
+    runtime_environment: dict = None,
+    **kwargs,
+):
+    store_config: dict = {
+        "bucket": bucket,
+        "prefix": prefix,
+    }
+    store_config.update(**kwargs)
+    gcs_store_backend_obj = build_tuple_gcs_store_backend(**store_config)
+    project_config.anonymous_usage_statistics.data_context_id = compute_and_persist_data_context_id(
+        store_backend=gcs_store_backend_obj,
         project_config=project_config,
         runtime_environment=runtime_environment,
     )
