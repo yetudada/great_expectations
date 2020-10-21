@@ -116,6 +116,6 @@ Check out :ref:`tutorials__getting_started` to set up your first local deploymen
 
 If you'd like to contribute to Great Expectations, please start :ref:`here <contributing>`.
 
-If you're interested in a paid support contract or consulting services for Great Expectations, please see options `here <https://superconductive.com/>`__
+If you're interested in a paid support contract or consulting services for Great Expectations, please see options `here <https://superconductive.com/>`__.
 
 For other questions and resources, please visit :ref:`community`.
